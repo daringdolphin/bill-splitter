@@ -3,8 +3,8 @@
 import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Camera, Upload, Loader2 } from "lucide-react"
-import { extractReceiptData } from "@/lib/receipt-extraction"
 import { BillData } from "@/lib/types"
+import { extractReceiptDataAction } from "@/actions/receipt-actions"
 
 interface ReceiptUploaderProps {
   onReceiptProcessed: (data: BillData) => void
@@ -46,8 +46,20 @@ export default function ReceiptUploader({
       // Process the image
       setIsProcessing(true)
       const imageData = await fileToBase64(file)
-      const billData = await extractReceiptData(imageData)
-      onReceiptProcessed(billData)
+
+      // Use the server action instead of the client-side function
+      const result = await extractReceiptDataAction(imageData)
+
+      if (result.isSuccess) {
+        onReceiptProcessed(result.data)
+      } else {
+        // Generate mock data when extraction fails
+        const mockData = await extractReceiptDataAction(null)
+        if (mockData.isSuccess) {
+          onReceiptProcessed(mockData.data)
+        }
+        onError(result.message)
+      }
     } catch (error) {
       console.error("Error processing receipt:", error)
       onError("Failed to process receipt. Please try again.")
