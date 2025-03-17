@@ -6,13 +6,14 @@ import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
+  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Plus, ArrowRight, Trash2 } from "lucide-react"
+import { Plus, ArrowRight, Trash2, Check } from "lucide-react"
 import BillTable from "@/components/bill-table"
 import { BillItemWithSelection } from "@/types"
 import { updateBillItemsAction } from "@/actions/db/bills-actions"
@@ -22,6 +23,8 @@ import { SelectBillItem } from "@/db/schema/bill-items-schema"
 import { SelectParticipant } from "@/db/schema/participants-schema"
 import { SelectItemSelection } from "@/db/schema/item-selections-schema"
 import { toast } from "@/components/ui/use-toast"
+import ItemSelector from "@/components/item-selector"
+import { formatCurrency } from "@/lib/utils"
 
 interface ReviewBillClientProps {
   billData: {
@@ -45,6 +48,13 @@ export default function ReviewBillClient({
   const [newItemPrice, setNewItemPrice] = useState("")
   const [newItemQuantity, setNewItemQuantity] = useState("1")
   const [isSaving, setIsSaving] = useState(false)
+
+  // New states for the item selection step
+  const [currentStep, setCurrentStep] = useState<
+    "review" | "select" | "success"
+  >("review")
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([])
+  const [isSubmittingSelections, setIsSubmittingSelections] = useState(false)
 
   // Process the bill data
   useEffect(() => {
@@ -73,6 +83,21 @@ export default function ReviewBillClient({
     })
 
     setItems(processedItems)
+
+    // Initialize selected items based on host's current selections
+    if (host) {
+      const hostSelections =
+        billData.participants
+          .find(p => p.id === host.id)
+          ?.selections.map(s => s.billItemId) || []
+
+      // Also include shared items
+      const sharedItemIds = billData.items
+        .filter(item => item.shared)
+        .map(item => item.id)
+
+      setSelectedItemIds([...new Set([...hostSelections, ...sharedItemIds])])
+    }
   }, [billData])
 
   const handleAddItem = () => {
@@ -193,15 +218,34 @@ export default function ReviewBillClient({
 
       // TODO: Handle new items (would require a separate action)
 
-      // Update host's selections
-      const hostSelectedItemIds = items
-        .filter(item => item.selected)
-        .map(item => item.id)
-        .filter(id => !id.startsWith("temp-")) // Filter out temporary IDs
+      // Move to the selection step instead of directly updating host's selections
+      setCurrentStep("select")
+    } catch (error) {
+      console.error("Error saving bill:", error)
+      toast({
+        title: "Error",
+        description: "Failed to save bill. Please try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
+  const handleSelectionChange = (itemIds: string[]) => {
+    setSelectedItemIds(itemIds)
+  }
+
+  const handleSubmitSelections = async () => {
+    if (!hostParticipant) return
+
+    setIsSubmittingSelections(true)
+
+    try {
+      // Update host's selections
       const { isSuccess, message } = await updateParticipantSelectionsAction(
         hostParticipant.id,
-        hostSelectedItemIds
+        selectedItemIds.filter(id => !id.startsWith("temp-")) // Filter out temporary IDs
       )
 
       if (!isSuccess) {
@@ -213,18 +257,22 @@ export default function ReviewBillClient({
         return
       }
 
-      // Navigate to the share page
-      router.push(`/share/${sessionId}`)
+      // Show success state
+      setCurrentStep("success")
     } catch (error) {
-      console.error("Error saving bill:", error)
+      console.error("Error saving selections:", error)
       toast({
         title: "Error",
-        description: "Failed to save bill. Please try again.",
+        description: "Failed to save your selections. Please try again.",
         variant: "destructive"
       })
     } finally {
-      setIsSaving(false)
+      setIsSubmittingSelections(false)
     }
+  }
+
+  const handleGoToShare = () => {
+    router.push(`/share/${sessionId}`)
   }
 
   // Calculate total
@@ -238,6 +286,114 @@ export default function ReviewBillClient({
     return (itemsTotal + tax + tip).toFixed(2)
   }
 
+  // If we're in the selection step, show the item selection UI
+  if (currentStep === "select") {
+    return (
+      <div className="mx-auto max-w-md space-y-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>{bill.restaurantName || "Restaurant Bill"}</CardTitle>
+            <CardDescription>Select the items you ordered</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div>
+              <h3 className="mb-2 text-lg font-medium">Bill Items</h3>
+              <p className="text-muted-foreground mb-4 text-sm">
+                Shared items are pre-selected. Select all items that you
+                personally ordered.
+              </p>
+
+              <ItemSelector
+                items={items.map(item => ({
+                  ...item,
+                  selected: selectedItemIds.includes(item.id)
+                }))}
+                participantSelections={selectedItemIds}
+                onChange={handleSelectionChange}
+                className=""
+              />
+            </div>
+          </CardContent>
+          <CardFooter>
+            <Button
+              className="w-full"
+              onClick={handleSubmitSelections}
+              disabled={selectedItemIds.length === 0 || isSubmittingSelections}
+            >
+              {isSubmittingSelections ? "Saving..." : "Save My Selections"}
+            </Button>
+          </CardFooter>
+        </Card>
+
+        <div className="bg-muted rounded-md p-4">
+          <h3 className="mb-2 font-medium">Bill Summary</h3>
+          <div className="space-y-1">
+            <div className="flex justify-between">
+              <span>Subtotal:</span>
+              <span>
+                {formatCurrency(
+                  parseFloat(bill.total) -
+                    parseFloat(bill.tax) -
+                    parseFloat(bill.tip)
+                )}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span>Tax:</span>
+              <span>{formatCurrency(parseFloat(bill.tax))}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Tip:</span>
+              <span>{formatCurrency(parseFloat(bill.tip))}</span>
+            </div>
+            <div className="flex justify-between font-medium">
+              <span>Total:</span>
+              <span>{formatCurrency(parseFloat(bill.total))}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // If we're in the success step, show the success UI
+  if (currentStep === "success") {
+    return (
+      <div className="mx-auto max-w-md">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-center">Thank You!</CardTitle>
+            <CardDescription className="text-center">
+              Your selections have been saved
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 text-center">
+            <div className="flex justify-center">
+              <div className="bg-primary/10 rounded-full p-4">
+                <Check className="text-primary size-8" />
+              </div>
+            </div>
+            <p>
+              You've successfully selected your items for the bill at{" "}
+              {bill.restaurantName || "the restaurant"}.
+            </p>
+            <p className="text-muted-foreground text-sm">
+              Now you can share the bill with your friends so they can select
+              their items.
+            </p>
+          </CardContent>
+          <CardFooter>
+            <Button className="w-full" onClick={handleGoToShare}>
+              Share Bill
+              <ArrowRight className="ml-2 size-4" />
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    )
+  }
+
+  // Default view (review step)
   return (
     <div className="mx-auto max-w-4xl space-y-8">
       <Card>

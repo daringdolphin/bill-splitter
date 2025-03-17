@@ -1,21 +1,23 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
+  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle
 } from "@/components/ui/card"
-import { Copy, Share2, ArrowRight } from "lucide-react"
+import { Copy, Share2, ArrowRight, AlertCircle } from "lucide-react"
 import { SelectBill } from "@/db/schema/bills-schema"
 import { SelectBillItem } from "@/db/schema/bill-items-schema"
 import { SelectParticipant } from "@/db/schema/participants-schema"
 import { SelectItemSelection } from "@/db/schema/item-selections-schema"
 import { toast } from "@/components/ui/use-toast"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 interface ShareBillClientProps {
   billData: {
@@ -32,6 +34,7 @@ export default function ShareBillClient({
 }: ShareBillClientProps) {
   const router = useRouter()
   const [copied, setCopied] = useState(false)
+  const [hostHasSelections, setHostHasSelections] = useState(false)
 
   // Calculate the total amount
   const total = parseFloat(billData.bill.total) || 0
@@ -44,6 +47,19 @@ export default function ShareBillClient({
     typeof window !== "undefined"
       ? `${window.location.origin}/join/${sessionId}`
       : ""
+
+  // Check if host has selected any items
+  useEffect(() => {
+    const hostParticipant = billData.participants.find(
+      p => p.name === billData.bill.hostName
+    )
+
+    if (hostParticipant && hostParticipant.selections.length > 0) {
+      setHostHasSelections(true)
+    } else {
+      setHostHasSelections(false)
+    }
+  }, [billData])
 
   const handleCopyLink = () => {
     if (typeof navigator !== "undefined") {
@@ -76,6 +92,38 @@ export default function ShareBillClient({
 
   const handleViewSummary = () => {
     router.push(`/summary/${sessionId}`)
+  }
+
+  const handleSelectItems = () => {
+    router.push(`/review-bill/${sessionId}`)
+  }
+
+  // If host hasn't selected any items, show a message
+  if (!hostHasSelections) {
+    return (
+      <div className="mx-auto max-w-md space-y-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Share Bill</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <Alert variant="destructive">
+              <AlertCircle className="size-4" />
+              <AlertTitle>You haven't selected your items yet</AlertTitle>
+              <AlertDescription>
+                Before sharing the bill with others, please select the items you
+                ordered.
+              </AlertDescription>
+            </Alert>
+          </CardContent>
+          <CardFooter>
+            <Button className="w-full" onClick={handleSelectItems}>
+              Select My Items
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    )
   }
 
   return (

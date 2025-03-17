@@ -31,17 +31,18 @@ interface JoinBillClientProps {
   bill: SelectBill
   items: SelectBillItem[]
   participants: (SelectParticipant & { selections: SelectItemSelection[] })[]
+  participantId?: string
 }
 
 export default function JoinBillClient({
   sessionId,
   bill,
   items,
-  participants
+  participants,
+  participantId
 }: JoinBillClientProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const participantId = searchParams.get("participantId")
 
   const [name, setName] = useState("")
   const [nameError, setNameError] = useState("")
@@ -68,6 +69,8 @@ export default function JoinBillClient({
           setSelectedItemIds(selectedIds)
 
           setIsEditMode(true)
+        } else {
+          console.error("Failed to fetch participant:", result.message)
         }
       }
     }

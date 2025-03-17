@@ -15,20 +15,22 @@ import { Button } from "@/components/ui/button"
 import BillNavigation from "@/components/bill-navigation"
 
 interface SummaryPageProps {
-  params: {
+  params: Promise<{
     sessionId: string
-  }
+  }>
 }
 
 export default async function SummaryPage({ params }: SummaryPageProps) {
+  const { sessionId } = await params
+
   return (
     <div className="container max-w-4xl py-8">
       <div className="mb-8 flex items-center justify-between">
         <h1 className="text-3xl font-bold">Bill Summary</h1>
-        <BillNavigation sessionId={params.sessionId} />
+        <BillNavigation sessionId={sessionId} />
       </div>
       <Suspense fallback={<SummaryPageSkeleton />}>
-        <SummaryFetcher sessionId={params.sessionId} />
+        <SummaryFetcher sessionId={sessionId} />
       </Suspense>
     </div>
   )

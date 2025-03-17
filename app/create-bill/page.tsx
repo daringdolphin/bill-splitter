@@ -203,6 +203,14 @@ export default function CreateBill() {
                 </div>
 
                 <div className="space-y-3">
+                  <div className="text-muted-foreground grid grid-cols-12 gap-2 px-3 text-sm font-medium">
+                    <div className="col-span-12 md:col-span-5">Item</div>
+                    <div className="col-span-4 md:col-span-2">Qty</div>
+                    <div className="col-span-6 md:col-span-3">Price</div>
+                    <div className="col-span-1 text-center">Shared</div>
+                    <div className="col-span-1"></div>
+                  </div>
+
                   {items.map((item, index) => (
                     <div
                       key={index}

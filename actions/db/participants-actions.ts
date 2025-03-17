@@ -91,27 +91,49 @@ export async function getParticipantWithSelectionsAction(
   participantId: string
 ): Promise<ActionState<SelectParticipant & { selections: SelectItemSelection[] }>> {
   try {
-    const participant = await db.query.participants.findFirst({
-      where: eq(participantsTable.id, participantId),
-      with: {
-        selections: true
+    if (!participantId) {
+      return {
+        isSuccess: false,
+        message: "Participant ID is required"
       }
-    })
+    }
+
+    console.log("Fetching participant with ID:", participantId);
+    
+    // First, check if the participant exists
+    const participant = await db.query.participants.findFirst({
+      where: eq(participantsTable.id, participantId)
+    });
 
     if (!participant) {
+      console.log("Participant not found with ID:", participantId);
       return {
         isSuccess: false,
         message: "Participant not found"
       }
     }
 
+    // Then, get the selections separately
+    const selections = await db.query.itemSelections.findMany({
+      where: eq(itemSelectionsTable.participantId, participantId)
+    });
+
+    console.log("Participant found:", participant);
+    console.log("Selections found:", selections);
+    
+    // Combine the participant with selections
+    const result = {
+      ...participant,
+      selections
+    };
+    
     return {
       isSuccess: true,
       message: "Participant retrieved successfully",
-      data: participant
+      data: result
     }
   } catch (error) {
-    console.error("Error retrieving participant:", error)
+    console.error("Error retrieving participant:", error);
     return { isSuccess: false, message: "Failed to retrieve participant" }
   }
 } 

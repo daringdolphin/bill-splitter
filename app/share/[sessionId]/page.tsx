@@ -6,12 +6,14 @@ import ShareBillClient from "@/app/share/[sessionId]/_components/share-bill-clie
 import { Skeleton } from "@/components/ui/skeleton"
 
 interface ShareBillPageProps {
-  params: {
+  params: Promise<{
     sessionId: string
-  }
+  }>
 }
 
 export default async function ShareBillPage({ params }: ShareBillPageProps) {
+  const { sessionId } = await params
+
   return (
     <div className="container mx-auto px-4 py-8 md:px-6">
       <h1 className="mb-8 text-center text-3xl font-bold">
@@ -19,7 +21,7 @@ export default async function ShareBillPage({ params }: ShareBillPageProps) {
       </h1>
 
       <Suspense fallback={<ShareBillSkeleton />}>
-        <ShareBillFetcher sessionId={params.sessionId} />
+        <ShareBillFetcher sessionId={sessionId} />
       </Suspense>
     </div>
   )

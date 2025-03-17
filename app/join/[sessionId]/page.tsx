@@ -6,20 +6,27 @@ import JoinBillClient from "@/app/join/[sessionId]/_components/join-bill-client"
 import BillNavigation from "@/components/bill-navigation"
 
 interface JoinPageProps {
-  params: {
+  params: Promise<{
     sessionId: string
-  }
+  }>
+  searchParams: { participantId?: string }
 }
 
-export default async function JoinPage({ params }: JoinPageProps) {
+export default async function JoinPage({
+  params,
+  searchParams
+}: JoinPageProps) {
+  const { sessionId } = await params
+  const { participantId } = searchParams
+
   return (
     <div className="container max-w-4xl py-8">
       <div className="mb-8 flex items-center justify-between">
         <h1 className="text-3xl font-bold">Join Bill</h1>
-        <BillNavigation sessionId={params.sessionId} />
+        <BillNavigation sessionId={sessionId} />
       </div>
       <Suspense fallback={<JoinPageSkeleton />}>
-        <JoinBillFetcher sessionId={params.sessionId} />
+        <JoinBillFetcher sessionId={sessionId} participantId={participantId} />
       </Suspense>
     </div>
   )
@@ -35,7 +42,13 @@ function JoinPageSkeleton() {
   )
 }
 
-async function JoinBillFetcher({ sessionId }: { sessionId: string }) {
+async function JoinBillFetcher({
+  sessionId,
+  participantId
+}: {
+  sessionId: string
+  participantId?: string
+}) {
   const { isSuccess, data, message } = await getBillBySessionIdAction(sessionId)
 
   if (!isSuccess || !data) {
@@ -47,6 +60,14 @@ async function JoinBillFetcher({ sessionId }: { sessionId: string }) {
   }
 
   const { bill, items, participants } = data
+  console.log("JoinBillFetcher - participantId:", participantId)
+  console.log("JoinBillFetcher - participantId type:", typeof participantId)
+
+  // Check if the participantId exists in the participants list
+  if (participantId) {
+    const participantExists = participants.some(p => p.id === participantId)
+    console.log("Participant exists in list:", participantExists)
+  }
 
   return (
     <JoinBillClient
@@ -54,6 +75,7 @@ async function JoinBillFetcher({ sessionId }: { sessionId: string }) {
       bill={bill}
       items={items}
       participants={participants}
+      participantId={participantId}
     />
   )
 }

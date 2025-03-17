@@ -6,18 +6,20 @@ import ReviewBillClient from "@/app/review-bill/[sessionId]/_components/review-b
 import { Skeleton } from "@/components/ui/skeleton"
 
 interface ReviewBillPageProps {
-  params: {
+  params: Promise<{
     sessionId: string
-  }
+  }>
 }
 
 export default async function ReviewBillPage({ params }: ReviewBillPageProps) {
+  const { sessionId } = await params
+
   return (
     <div className="container mx-auto px-4 py-8 md:px-6">
       <h1 className="mb-8 text-center text-3xl font-bold">Review Bill</h1>
 
       <Suspense fallback={<ReviewBillSkeleton />}>
-        <ReviewBillFetcher sessionId={params.sessionId} />
+        <ReviewBillFetcher sessionId={sessionId} />
       </Suspense>
     </div>
   )
