@@ -1,6 +1,10 @@
 "use client"
 
 import { useState } from "react"
+import { BillItemWithSelection } from "@/types"
+import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Table,
   TableBody,
@@ -9,145 +13,162 @@ import {
   TableHeader,
   TableRow
 } from "@/components/ui/table"
-import { Input } from "@/components/ui/input"
-import { Switch } from "@/components/ui/switch"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Button } from "@/components/ui/button"
-import { Trash2 } from "lucide-react"
-import { SelectBillItem } from "@/db/schema/bill-items-schema"
-
-export interface BillTableItem extends SelectBillItem {
-  selectedBy?: string[]
-}
+import { cn } from "@/lib/utils"
 
 interface BillTableProps {
-  items: BillTableItem[]
-  hostName?: string
-  isEditable?: boolean
-  onUpdateItem?: (id: string, field: keyof BillTableItem, value: any) => void
-  onToggleShared?: (id: string) => void
-  onHostSelection?: (id: string, checked: boolean) => void
-  onDeleteItem?: (id: string) => void
+  items: BillItemWithSelection[]
+  editable?: boolean
+  selectable?: boolean
+  onItemsChange?: (items: BillItemWithSelection[]) => void
+  onSelectionChange?: (items: BillItemWithSelection[]) => void
+  className?: string
 }
 
 export default function BillTable({
   items,
-  hostName,
-  isEditable = true,
-  onUpdateItem,
-  onToggleShared,
-  onHostSelection,
-  onDeleteItem
+  editable = false,
+  selectable = false,
+  onItemsChange,
+  onSelectionChange,
+  className
 }: BillTableProps) {
+  const [billItems, setBillItems] = useState<BillItemWithSelection[]>(items)
+
+  const handleItemChange = (
+    index: number,
+    field: keyof BillItemWithSelection,
+    value: any
+  ) => {
+    const updatedItems = [...billItems]
+
+    if (field === "price" && typeof value === "string") {
+      // Ensure price is a valid number
+      const numericValue = value.replace(/[^0-9.]/g, "")
+      updatedItems[index] = { ...updatedItems[index], [field]: numericValue }
+    } else if (field === "quantity" && typeof value === "string") {
+      // Ensure quantity is a valid integer
+      const numericValue = parseInt(value.replace(/[^0-9]/g, "")) || 1
+      updatedItems[index] = { ...updatedItems[index], [field]: numericValue }
+    } else {
+      updatedItems[index] = { ...updatedItems[index], [field]: value }
+    }
+
+    setBillItems(updatedItems)
+    onItemsChange?.(updatedItems)
+  }
+
+  const handleSelectionChange = (index: number, selected: boolean) => {
+    const updatedItems = [...billItems]
+    updatedItems[index] = { ...updatedItems[index], selected }
+    setBillItems(updatedItems)
+    onSelectionChange?.(updatedItems)
+  }
+
   return (
-    <div className="overflow-x-auto">
+    <div className={cn("w-full overflow-auto", className)}>
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Item</TableHead>
-            <TableHead>Quantity</TableHead>
-            <TableHead>Price</TableHead>
-            <TableHead>Shared</TableHead>
-            {hostName && <TableHead>Your Item</TableHead>}
-            {isEditable && onDeleteItem && <TableHead></TableHead>}
+            <TableHead className="w-[80px] text-right">Qty</TableHead>
+            <TableHead className="w-[100px] text-right">Price</TableHead>
+            {editable && (
+              <TableHead className="w-[80px] text-center">Shared</TableHead>
+            )}
+            {selectable && (
+              <TableHead className="w-[80px] text-center">Select</TableHead>
+            )}
           </TableRow>
         </TableHeader>
         <TableBody>
-          {items.map(item => (
+          {billItems.map((item, index) => (
             <TableRow key={item.id}>
               <TableCell>
-                {isEditable && onUpdateItem ? (
+                {editable ? (
                   <Input
                     value={item.name}
                     onChange={e =>
-                      onUpdateItem(item.id, "name", e.target.value)
+                      handleItemChange(index, "name", e.target.value)
                     }
+                    className="h-8"
                   />
                 ) : (
-                  <span>{item.name}</span>
+                  <div className="flex items-center">
+                    <span>{item.name}</span>
+                    {item.shared && (
+                      <span className="text-muted-foreground ml-2 text-xs">
+                        (shared)
+                      </span>
+                    )}
+                  </div>
                 )}
               </TableCell>
-              <TableCell>
-                {isEditable && onUpdateItem ? (
+              <TableCell className="text-right">
+                {editable ? (
                   <Input
                     type="number"
                     min="1"
                     value={item.quantity}
                     onChange={e =>
-                      onUpdateItem(
-                        item.id,
-                        "quantity",
-                        Number.parseInt(e.target.value) || 1
-                      )
+                      handleItemChange(index, "quantity", e.target.value)
                     }
-                    className="w-20"
+                    className="h-8 w-16 text-right"
                   />
                 ) : (
-                  <span>{item.quantity}</span>
+                  item.quantity
                 )}
               </TableCell>
-              <TableCell>
-                {isEditable && onUpdateItem ? (
+              <TableCell className="text-right">
+                {editable ? (
                   <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={parseFloat(item.price.toString())}
+                    value={item.price}
                     onChange={e =>
-                      onUpdateItem(
-                        item.id,
-                        "price",
-                        Number.parseFloat(e.target.value) || 0
-                      )
+                      handleItemChange(index, "price", e.target.value)
                     }
-                    className="w-24"
+                    className="h-8 w-24 text-right"
+                    placeholder="0.00"
                   />
                 ) : (
-                  <span>${parseFloat(item.price.toString()).toFixed(2)}</span>
+                  `$${parseFloat(item.price.toString()).toFixed(2)}`
                 )}
               </TableCell>
-              <TableCell>
-                {isEditable && onToggleShared ? (
-                  <Switch
-                    checked={item.shared}
-                    onCheckedChange={() => onToggleShared(item.id)}
-                  />
-                ) : (
-                  <span>{item.shared ? "Yes" : "No"}</span>
-                )}
-              </TableCell>
-              {hostName && (
-                <TableCell>
-                  {onHostSelection ? (
-                    <Checkbox
-                      checked={(item.selectedBy || []).includes(hostName)}
+              {editable && (
+                <TableCell className="text-center">
+                  <div className="flex justify-center">
+                    <Switch
+                      checked={item.shared}
                       onCheckedChange={checked =>
-                        onHostSelection(item.id, !!checked)
+                        handleItemChange(index, "shared", checked)
                       }
-                      disabled={!hostName}
                     />
-                  ) : (
-                    <span>
-                      {(item.selectedBy || []).includes(hostName)
-                        ? "Yes"
-                        : "No"}
-                    </span>
-                  )}
+                  </div>
                 </TableCell>
               )}
-              {isEditable && onDeleteItem && (
-                <TableCell>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => onDeleteItem(item.id)}
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
+              {selectable && (
+                <TableCell className="text-center">
+                  <div className="flex justify-center">
+                    <Checkbox
+                      checked={item.selected}
+                      onCheckedChange={checked =>
+                        handleSelectionChange(index, !!checked)
+                      }
+                      disabled={item.shared} // Shared items are automatically selected
+                    />
+                  </div>
                 </TableCell>
               )}
             </TableRow>
           ))}
+          {billItems.length === 0 && (
+            <TableRow>
+              <TableCell
+                colSpan={editable ? 4 : selectable ? 4 : 3}
+                className="text-muted-foreground py-6 text-center"
+              >
+                No items found
+              </TableCell>
+            </TableRow>
+          )}
         </TableBody>
       </Table>
     </div>

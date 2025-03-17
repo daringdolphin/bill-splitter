@@ -55,6 +55,28 @@ async function SummaryFetcher({ sessionId }: { sessionId: string }) {
     participants
   )
 
+  // Format data for PaymentSummary component
+  const paymentSummary = {
+    participantShares: Object.entries(participantShares).map(
+      ([name, total]) => ({
+        participantId: participants.find(p => p.name === name)?.id || name,
+        participantName: name,
+        items: [], // We don't have detailed item breakdown in this context
+        total: total.toFixed(2)
+      })
+    ),
+    unclaimedItems: unclaimed.map(item => ({
+      itemId: item.id,
+      itemName: item.name,
+      price: item.price,
+      quantity: item.quantity
+    })),
+    totalPaid: Object.values(participantShares)
+      .reduce((sum, amount) => sum + amount, 0)
+      .toFixed(2),
+    totalBill: bill.total
+  }
+
   return (
     <div className="space-y-8">
       <div className="bg-muted rounded-md p-4">
@@ -85,11 +107,7 @@ async function SummaryFetcher({ sessionId }: { sessionId: string }) {
         </div>
       </div>
 
-      <PaymentSummary
-        participantShares={participantShares}
-        unclaimed={unclaimed}
-        restaurantName={bill.restaurantName}
-      />
+      <PaymentSummary summary={paymentSummary} />
 
       <div className="text-muted-foreground mt-8 text-center text-sm">
         <p>Share this summary with your friends using the link:</p>

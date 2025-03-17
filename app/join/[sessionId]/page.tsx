@@ -2,7 +2,7 @@
 
 import { Suspense } from "react"
 import { getBillBySessionIdAction } from "@/actions/db/bills-actions"
-import JoinBillClient from "./_components/join-bill-client"
+import JoinBillClient from "@/app/join/[sessionId]/_components/join-bill-client"
 
 interface JoinPageProps {
   params: {

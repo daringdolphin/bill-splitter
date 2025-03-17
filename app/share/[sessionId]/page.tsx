@@ -2,7 +2,7 @@
 
 import { Suspense } from "react"
 import { getBillBySessionIdAction } from "@/actions/db/bills-actions"
-import ShareBillClient from "./_components/share-bill-client"
+import ShareBillClient from "@/app/share/[sessionId]/_components/share-bill-client"
 import { Skeleton } from "@/components/ui/skeleton"
 
 interface ShareBillPageProps {

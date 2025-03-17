@@ -12,8 +12,9 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Plus, ArrowRight } from "lucide-react"
-import BillTable, { BillTableItem } from "@/components/bill-table"
+import { Plus, ArrowRight, Trash2 } from "lucide-react"
+import BillTable from "@/components/bill-table"
+import { BillItemWithSelection } from "@/types"
 import { updateBillItemsAction } from "@/actions/db/bills-actions"
 import { updateParticipantSelectionsAction } from "@/actions/db/participants-actions"
 import { SelectBill } from "@/db/schema/bills-schema"
@@ -37,7 +38,7 @@ export default function ReviewBillClient({
 }: ReviewBillClientProps) {
   const router = useRouter()
   const [bill, setBill] = useState<SelectBill>(billData.bill)
-  const [items, setItems] = useState<BillTableItem[]>([])
+  const [items, setItems] = useState<BillItemWithSelection[]>([])
   const [hostParticipant, setHostParticipant] =
     useState<SelectParticipant | null>(null)
   const [newItemName, setNewItemName] = useState("")
@@ -66,7 +67,8 @@ export default function ReviewBillClient({
 
       return {
         ...item,
-        selectedBy
+        selectedBy,
+        selected: selectedBy.includes(billData.bill.hostName)
       }
     })
 
@@ -77,7 +79,7 @@ export default function ReviewBillClient({
     if (!newItemName || !newItemPrice) return
 
     // Create a new item with temporary ID (will be replaced on save)
-    const newItem: BillTableItem = {
+    const newItem: BillItemWithSelection = {
       id: `temp-${Date.now()}`,
       billId: bill.id,
       name: newItemName,
@@ -86,7 +88,8 @@ export default function ReviewBillClient({
       shared: false,
       createdAt: new Date(),
       updatedAt: new Date(),
-      selectedBy: []
+      selectedBy: [],
+      selected: false
     }
 
     setItems([...items, newItem])
@@ -99,7 +102,7 @@ export default function ReviewBillClient({
 
   const handleUpdateItem = (
     id: string,
-    field: keyof BillTableItem,
+    field: keyof BillItemWithSelection,
     value: any
   ) => {
     const updatedItems = items.map(item => {
@@ -134,14 +137,18 @@ export default function ReviewBillClient({
           if (!currentSelectedBy.includes(bill.hostName)) {
             return {
               ...item,
-              selectedBy: [...currentSelectedBy, bill.hostName]
+              selectedBy: [...currentSelectedBy, bill.hostName],
+              selected: true
             }
           }
         } else {
           // Remove host from selectedBy
           return {
             ...item,
-            selectedBy: currentSelectedBy.filter(name => name !== bill.hostName)
+            selectedBy: currentSelectedBy.filter(
+              (name: string) => name !== bill.hostName
+            ),
+            selected: false
           }
         }
       }
@@ -167,8 +174,9 @@ export default function ReviewBillClient({
 
       // Update existing items
       if (existingItems.length > 0) {
+        // Remove the selectedBy and selected properties before sending to the server
         const itemsToUpdate = existingItems.map(
-          ({ selectedBy, ...item }) => item
+          ({ selectedBy, selected, ...item }) => item
         )
         const { isSuccess, message } =
           await updateBillItemsAction(itemsToUpdate)
@@ -187,7 +195,7 @@ export default function ReviewBillClient({
 
       // Update host's selections
       const hostSelectedItemIds = items
-        .filter(item => (item.selectedBy || []).includes(bill.hostName))
+        .filter(item => item.selected)
         .map(item => item.id)
         .filter(id => !id.startsWith("temp-")) // Filter out temporary IDs
 
@@ -271,13 +279,47 @@ export default function ReviewBillClient({
           <div className="space-y-6">
             <BillTable
               items={items}
-              hostName={bill.hostName}
-              isEditable={true}
-              onUpdateItem={handleUpdateItem}
-              onToggleShared={handleToggleShared}
-              onHostSelection={handleHostSelection}
-              onDeleteItem={handleDeleteItem}
+              editable={true}
+              onItemsChange={updatedItems => {
+                setItems(updatedItems)
+                // Process any updates that need to be handled
+                updatedItems.forEach((item, index) => {
+                  const originalItem = items[index]
+                  if (originalItem && originalItem.id === item.id) {
+                    // Check if shared status changed
+                    if (originalItem.shared !== item.shared) {
+                      handleToggleShared(item.id)
+                    }
+
+                    // Check if selection changed
+                    if (originalItem.selected !== item.selected) {
+                      handleHostSelection(item.id, !!item.selected)
+                    }
+                  }
+                })
+              }}
             />
+
+            {/* Item deletion buttons */}
+            {items.length > 0 && (
+              <div className="mt-4 space-y-2">
+                <h3 className="text-sm font-medium">Delete Items</h3>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
+                  {items.map(item => (
+                    <Button
+                      key={item.id}
+                      variant="outline"
+                      size="sm"
+                      className="justify-start"
+                      onClick={() => handleDeleteItem(item.id)}
+                    >
+                      <Trash2 className="text-destructive mr-2 size-4" />
+                      {item.name}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-4">
               <div className="md:col-span-2">

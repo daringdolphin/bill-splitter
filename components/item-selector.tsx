@@ -1,6 +1,8 @@
 "use client"
 
-import { SelectBillItem } from "@/db/schema/bill-items-schema"
+import { useState, useEffect } from "react"
+import { BillItemWithSelection } from "@/types"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Table,
   TableBody,
@@ -9,78 +11,108 @@ import {
   TableHeader,
   TableRow
 } from "@/components/ui/table"
-import { Checkbox } from "@/components/ui/checkbox"
-import { formatCurrency } from "@/lib/utils"
-import { useState } from "react"
+import { cn } from "@/lib/utils"
 
 interface ItemSelectorProps {
-  items: SelectBillItem[]
-  selectedItemIds: string[]
-  onSelectionChange: (selectedItemIds: string[]) => void
-  disabled?: boolean
+  items: BillItemWithSelection[]
+  participantSelections?: string[] // IDs of items already selected by this participant
+  onChange: (selectedItemIds: string[]) => void
+  className?: string
 }
 
 export default function ItemSelector({
   items,
-  selectedItemIds,
-  onSelectionChange,
-  disabled = false
+  participantSelections = [],
+  onChange,
+  className
 }: ItemSelectorProps) {
-  const [selected, setSelected] = useState<string[]>(selectedItemIds)
+  const [selectedItems, setSelectedItems] = useState<string[]>(
+    participantSelections
+  )
 
-  const handleToggleItem = (itemId: string) => {
-    const newSelected = selected.includes(itemId)
-      ? selected.filter(id => id !== itemId)
-      : [...selected, itemId]
+  // Initialize shared items as selected
+  useEffect(() => {
+    const sharedItemIds = items.filter(item => item.shared).map(item => item.id)
 
-    setSelected(newSelected)
-    onSelectionChange(newSelected)
+    const initialSelections = [
+      ...new Set([...participantSelections, ...sharedItemIds])
+    ]
+    setSelectedItems(initialSelections)
+    onChange(initialSelections)
+  }, [items, participantSelections, onChange])
+
+  const handleSelectionChange = (itemId: string, checked: boolean) => {
+    let newSelectedItems: string[]
+
+    if (checked) {
+      newSelectedItems = [...selectedItems, itemId]
+    } else {
+      newSelectedItems = selectedItems.filter(id => id !== itemId)
+    }
+
+    setSelectedItems(newSelectedItems)
+    onChange(newSelectedItems)
+  }
+
+  const isItemSelected = (itemId: string) => {
+    return selectedItems.includes(itemId)
   }
 
   return (
-    <div className="w-full overflow-auto">
+    <div className={cn("w-full overflow-auto", className)}>
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-12"></TableHead>
+            <TableHead className="w-[50px]"></TableHead>
             <TableHead>Item</TableHead>
-            <TableHead>Price</TableHead>
-            <TableHead>Qty</TableHead>
-            <TableHead className="text-right">Total</TableHead>
+            <TableHead className="w-[80px] text-right">Qty</TableHead>
+            <TableHead className="w-[100px] text-right">Price</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {items.map(item => {
-            const isShared = item.shared
-            const isSelected = selected.includes(item.id)
-            const itemTotal = parseFloat(item.price) * item.quantity
-
-            return (
-              <TableRow key={item.id} className={isShared ? "bg-muted/50" : ""}>
-                <TableCell>
-                  <Checkbox
-                    checked={isSelected}
-                    onCheckedChange={() => handleToggleItem(item.id)}
-                    disabled={disabled}
-                    aria-label={`Select ${item.name}`}
-                  />
-                </TableCell>
-                <TableCell className="font-medium">
-                  {item.name}
-                  {isShared && (
+          {items.map(item => (
+            <TableRow
+              key={item.id}
+              className={cn(
+                item.shared && "bg-muted/50",
+                isItemSelected(item.id) && !item.shared && "bg-primary/10"
+              )}
+            >
+              <TableCell>
+                <Checkbox
+                  checked={isItemSelected(item.id)}
+                  onCheckedChange={checked =>
+                    handleSelectionChange(item.id, !!checked)
+                  }
+                  disabled={item.shared} // Shared items cannot be unselected
+                />
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center">
+                  <span>{item.name}</span>
+                  {item.shared && (
                     <span className="text-muted-foreground ml-2 text-xs">
-                      (shared)
+                      (shared by all)
                     </span>
                   )}
-                </TableCell>
-                <TableCell>{formatCurrency(parseFloat(item.price))}</TableCell>
-                <TableCell>{item.quantity}</TableCell>
-                <TableCell className="text-right">
-                  {formatCurrency(itemTotal)}
-                </TableCell>
-              </TableRow>
-            )
-          })}
+                </div>
+              </TableCell>
+              <TableCell className="text-right">{item.quantity}</TableCell>
+              <TableCell className="text-right">
+                ${parseFloat(item.price.toString()).toFixed(2)}
+              </TableCell>
+            </TableRow>
+          ))}
+          {items.length === 0 && (
+            <TableRow>
+              <TableCell
+                colSpan={4}
+                className="text-muted-foreground py-6 text-center"
+              >
+                No items found
+              </TableCell>
+            </TableRow>
+          )}
         </TableBody>
       </Table>
     </div>

@@ -4,10 +4,8 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { SelectBill } from "@/db/schema/bills-schema"
 import { SelectBillItem } from "@/db/schema/bill-items-schema"
-import {
-  SelectParticipant,
-  SelectItemSelection
-} from "@/db/schema/participants-schema"
+import { SelectParticipant } from "@/db/schema/participants-schema"
+import { SelectItemSelection } from "@/db/schema/item-selections-schema"
 import {
   addParticipantAction,
   updateParticipantSelectionsAction
@@ -186,10 +184,13 @@ export default function JoinBillClient({
             </p>
 
             <ItemSelector
-              items={items}
-              selectedItemIds={selectedItemIds}
-              onSelectionChange={handleSelectionChange}
-              disabled={isSubmitting}
+              items={items.map(item => ({
+                ...item,
+                selected: selectedItemIds.includes(item.id)
+              }))}
+              participantSelections={selectedItemIds}
+              onChange={handleSelectionChange}
+              className=""
             />
           </div>
         </CardContent>
