@@ -16,15 +16,20 @@ import {
   AccordionTrigger
 } from "@/components/ui/accordion"
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import Link from "next/link"
+import { Edit } from "lucide-react"
 
 interface PaymentSummaryComponentProps {
   summary: PaymentSummary
   className?: string
+  sessionId?: string
 }
 
 export default function PaymentSummaryComponent({
   summary,
-  className
+  className,
+  sessionId
 }: PaymentSummaryComponentProps) {
   const { participantShares, unclaimedItems, totalPaid, totalBill } = summary
 
@@ -38,7 +43,9 @@ export default function PaymentSummaryComponent({
           <div className="text-muted-foreground text-sm font-medium">
             Total Bill
           </div>
-          <div className="mt-1 text-2xl font-bold">${totalBill}</div>
+          <div className="mt-1 text-2xl font-bold">
+            ${parseFloat(totalBill).toFixed(2)}
+          </div>
         </div>
 
         <div className="rounded-lg border p-4">
@@ -82,41 +89,93 @@ export default function PaymentSummaryComponent({
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="px-4 pb-4">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Item</TableHead>
-                          <TableHead className="w-[80px] text-right">
-                            Qty
-                          </TableHead>
-                          <TableHead className="w-[100px] text-right">
-                            Price
-                          </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {share.items.map(item => (
-                          <TableRow key={item.itemId}>
-                            <TableCell>
-                              <div className="flex items-center">
-                                <span>{item.itemName}</span>
-                                {item.shared && (
-                                  <span className="text-muted-foreground ml-2 text-xs">
-                                    (shared)
-                                  </span>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {item.quantity}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              ${item.shared ? item.sharedCost : item.price}
-                            </TableCell>
+                    <div className="mb-2">
+                      <div className="text-muted-foreground mb-2 text-sm">
+                        Items selected by {share.participantName}:
+                      </div>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Item</TableHead>
+                            <TableHead className="w-[80px] text-right">
+                              Qty
+                            </TableHead>
+                            <TableHead className="w-[100px] text-right">
+                              Price
+                            </TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {/* Group items by shared status */}
+                          {/* First show non-shared items */}
+                          {share.items
+                            .filter(item => !item.shared)
+                            .map(item => (
+                              <TableRow key={item.itemId}>
+                                <TableCell>
+                                  <div className="flex items-center">
+                                    <span>{item.itemName}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {item.quantity}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  ${item.price}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+
+                          {/* Then show shared items */}
+                          {share.items
+                            .filter(item => item.shared)
+                            .map(item => (
+                              <TableRow
+                                key={item.itemId}
+                                className="bg-muted/30"
+                              >
+                                <TableCell>
+                                  <div className="flex items-center">
+                                    <span>{item.itemName}</span>
+                                    <span className="text-muted-foreground ml-2 text-xs">
+                                      (shared)
+                                    </span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {item.quantity}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  ${item.sharedCost}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+
+                          {share.items.length === 0 && (
+                            <TableRow>
+                              <TableCell
+                                colSpan={3}
+                                className="text-muted-foreground py-4 text-center"
+                              >
+                                No items selected
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    {sessionId && (
+                      <div className="mt-4 flex justify-end">
+                        <Button variant="outline" size="sm" asChild>
+                          <Link
+                            href={`/join/${sessionId}?participantId=${share.participantId}`}
+                          >
+                            <Edit className="mr-2 size-4" />
+                            Edit Selections
+                          </Link>
+                        </Button>
+                      </div>
+                    )}
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>

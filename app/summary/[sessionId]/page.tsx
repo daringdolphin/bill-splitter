@@ -8,6 +8,11 @@ import { SelectItemSelection } from "@/db/schema/item-selections-schema"
 import { SelectParticipant } from "@/db/schema/participants-schema"
 import { SelectBill } from "@/db/schema/bills-schema"
 import { formatCurrency } from "@/lib/utils"
+import { calculateShares } from "@/lib/bill-calculations"
+import { BillItem } from "@/lib/types"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import BillNavigation from "@/components/bill-navigation"
 
 interface SummaryPageProps {
   params: {
@@ -15,10 +20,13 @@ interface SummaryPageProps {
   }
 }
 
-export default function SummaryPage({ params }: SummaryPageProps) {
+export default async function SummaryPage({ params }: SummaryPageProps) {
   return (
     <div className="container max-w-4xl py-8">
-      <h1 className="mb-8 text-3xl font-bold">Bill Summary</h1>
+      <div className="mb-8 flex items-center justify-between">
+        <h1 className="text-3xl font-bold">Bill Summary</h1>
+        <BillNavigation sessionId={params.sessionId} />
+      </div>
       <Suspense fallback={<SummaryPageSkeleton />}>
         <SummaryFetcher sessionId={params.sessionId} />
       </Suspense>
@@ -48,12 +56,35 @@ async function SummaryFetcher({ sessionId }: { sessionId: string }) {
 
   const { bill, items, participants } = data
 
+  // Convert DB data to format expected by calculateShares
+  const billData = {
+    sessionId: bill.sessionId,
+    restaurantName: bill.restaurantName || undefined,
+    hostName: bill.hostName,
+    items: items.map(item => {
+      // Get list of participants who selected this item
+      const selectedBy = participants
+        .filter(p => p.selections.some(s => s.billItemId === item.id))
+        .map(p => p.name)
+
+      return {
+        id: item.id,
+        name: item.name,
+        price: parseFloat(item.price),
+        quantity: item.quantity,
+        shared: item.shared,
+        selectedBy
+      } as BillItem
+    }),
+    tax: parseFloat(bill.tax),
+    tip: parseFloat(bill.tip),
+    total: parseFloat(bill.total),
+    participants: participants.map(p => p.name)
+  }
+
   // Calculate participant shares and unclaimed items
-  const { participantShares, unclaimed } = calculateShares(
-    bill,
-    items,
-    participants
-  )
+  const { participantShares, participantItems, unclaimed } =
+    calculateShares(billData)
 
   // Format data for PaymentSummary component
   const paymentSummary = {
@@ -61,14 +92,21 @@ async function SummaryFetcher({ sessionId }: { sessionId: string }) {
       ([name, total]) => ({
         participantId: participants.find(p => p.name === name)?.id || name,
         participantName: name,
-        items: [], // We don't have detailed item breakdown in this context
+        items:
+          participantItems[name]?.map(item => ({
+            ...item,
+            price:
+              typeof item.price === "number"
+                ? item.price.toString()
+                : item.price
+          })) || [],
         total: total.toFixed(2)
       })
     ),
     unclaimedItems: unclaimed.map(item => ({
       itemId: item.id,
       itemName: item.name,
-      price: item.price,
+      price: item.price.toString(),
       quantity: item.quantity
     })),
     totalPaid: Object.values(participantShares)
@@ -107,7 +145,7 @@ async function SummaryFetcher({ sessionId }: { sessionId: string }) {
         </div>
       </div>
 
-      <PaymentSummary summary={paymentSummary} />
+      <PaymentSummary summary={paymentSummary} sessionId={sessionId} />
 
       <div className="text-muted-foreground mt-8 text-center text-sm">
         <p>Share this summary with your friends using the link:</p>
@@ -118,95 +156,4 @@ async function SummaryFetcher({ sessionId }: { sessionId: string }) {
       </div>
     </div>
   )
-}
-
-// Helper function to calculate shares and unclaimed items
-function calculateShares(
-  bill: SelectBill,
-  items: SelectBillItem[],
-  participants: (SelectParticipant & { selections: SelectItemSelection[] })[]
-): {
-  participantShares: Record<string, number>
-  unclaimed: SelectBillItem[]
-} {
-  // Initialize shares for each participant
-  const participantShares: Record<string, number> = {}
-  participants.forEach(participant => {
-    participantShares[participant.name] = 0
-  })
-
-  // Track unclaimed items
-  const unclaimed: SelectBillItem[] = []
-
-  // Create a map of item selections by item ID
-  const itemSelections = new Map<string, string[]>()
-
-  // Populate the map with participant selections
-  participants.forEach(participant => {
-    participant.selections.forEach(selection => {
-      const itemId = selection.billItemId
-      if (!itemSelections.has(itemId)) {
-        itemSelections.set(itemId, [])
-      }
-      itemSelections.get(itemId)?.push(participant.name)
-    })
-  })
-
-  // Calculate individual item costs
-  items.forEach(item => {
-    const selectedBy = itemSelections.get(item.id) || []
-    const totalItemCost = parseFloat(item.price) * item.quantity
-
-    if (selectedBy.length === 0) {
-      // Item is unclaimed
-      unclaimed.push(item)
-    } else if (item.shared) {
-      // Shared item - split cost among all who selected it
-      const costPerPerson = totalItemCost / selectedBy.length
-      selectedBy.forEach(person => {
-        participantShares[person] += costPerPerson
-      })
-    } else {
-      // Individual item - assign full cost to each person who selected it
-      // For non-shared items, divide by the quantity if multiple people selected it
-      if (selectedBy.length > 1 && item.quantity >= selectedBy.length) {
-        // If quantity allows, split the item cost
-        const costPerPerson = totalItemCost / selectedBy.length
-        selectedBy.forEach(person => {
-          participantShares[person] += costPerPerson
-        })
-      } else {
-        // Otherwise, assign full cost to each selector
-        selectedBy.forEach(person => {
-          participantShares[person] += totalItemCost / selectedBy.length
-        })
-      }
-    }
-  })
-
-  // Get tax and tip from the bill
-  const tax = parseFloat(bill.tax)
-  const tip = parseFloat(bill.tip)
-
-  // Split tax and tip equally among all participants
-  if (participants.length > 0) {
-    const taxPerPerson = tax / participants.length
-    const tipPerPerson = tip / participants.length
-
-    participants.forEach(participant => {
-      participantShares[participant.name] += taxPerPerson + tipPerPerson
-    })
-  }
-
-  // Round all amounts to 2 decimal places
-  Object.keys(participantShares).forEach(person => {
-    participantShares[person] = Number.parseFloat(
-      participantShares[person].toFixed(2)
-    )
-  })
-
-  return {
-    participantShares,
-    unclaimed
-  }
 }

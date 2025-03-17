@@ -84,4 +84,34 @@ export async function updateParticipantSelectionsAction(
     console.error("Error updating participant selections:", error)
     return { isSuccess: false, message: "Failed to update participant selections" }
   }
+}
+
+// Get participant with selections by participant ID
+export async function getParticipantWithSelectionsAction(
+  participantId: string
+): Promise<ActionState<SelectParticipant & { selections: SelectItemSelection[] }>> {
+  try {
+    const participant = await db.query.participants.findFirst({
+      where: eq(participantsTable.id, participantId),
+      with: {
+        selections: true
+      }
+    })
+
+    if (!participant) {
+      return {
+        isSuccess: false,
+        message: "Participant not found"
+      }
+    }
+
+    return {
+      isSuccess: true,
+      message: "Participant retrieved successfully",
+      data: participant
+    }
+  } catch (error) {
+    console.error("Error retrieving participant:", error)
+    return { isSuccess: false, message: "Failed to retrieve participant" }
+  }
 } 

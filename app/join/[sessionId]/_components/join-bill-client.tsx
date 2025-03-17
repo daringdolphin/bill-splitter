@@ -1,14 +1,15 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { SelectBill } from "@/db/schema/bills-schema"
 import { SelectBillItem } from "@/db/schema/bill-items-schema"
 import { SelectParticipant } from "@/db/schema/participants-schema"
 import { SelectItemSelection } from "@/db/schema/item-selections-schema"
 import {
   addParticipantAction,
-  updateParticipantSelectionsAction
+  updateParticipantSelectionsAction,
+  getParticipantWithSelectionsAction
 } from "@/actions/db/participants-actions"
 import { Button } from "@/components/ui/button"
 import {
@@ -39,6 +40,9 @@ export default function JoinBillClient({
   participants
 }: JoinBillClientProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const participantId = searchParams.get("participantId")
+
   const [name, setName] = useState("")
   const [nameError, setNameError] = useState("")
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>(
@@ -48,6 +52,28 @@ export default function JoinBillClient({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
   const [participant, setParticipant] = useState<SelectParticipant | null>(null)
+  const [isEditMode, setIsEditMode] = useState(false)
+
+  // Fetch participant data if in edit mode
+  useEffect(() => {
+    const fetchParticipant = async () => {
+      if (participantId) {
+        const result = await getParticipantWithSelectionsAction(participantId)
+        if (result.isSuccess && result.data) {
+          setParticipant(result.data)
+          setName(result.data.name)
+
+          // Set selected items from participant's selections
+          const selectedIds = result.data.selections.map(s => s.billItemId)
+          setSelectedItemIds(selectedIds)
+
+          setIsEditMode(true)
+        }
+      }
+    }
+
+    fetchParticipant()
+  }, [participantId])
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setName(e.target.value)
@@ -64,44 +90,63 @@ export default function JoinBillClient({
       return
     }
 
-    // Check if name already exists
-    const nameExists = participants.some(
-      p => p.name.toLowerCase() === name.trim().toLowerCase()
-    )
+    // Check if name already exists (only in create mode)
+    if (!isEditMode) {
+      const nameExists = participants.some(
+        p => p.name.toLowerCase() === name.trim().toLowerCase()
+      )
 
-    if (nameExists) {
-      setNameError("This name is already taken. Please use a different name.")
-      return
+      if (nameExists) {
+        setNameError("This name is already taken. Please use a different name.")
+        return
+      }
     }
 
     setIsSubmitting(true)
 
     try {
-      // Add participant
-      const participantResult = await addParticipantAction({
-        billId: bill.id,
-        name: name.trim()
-      })
+      // If editing, skip adding participant
+      if (!isEditMode) {
+        // Add participant
+        const participantResult = await addParticipantAction({
+          billId: bill.id,
+          name: name.trim()
+        })
 
-      if (!participantResult.isSuccess) {
-        setNameError(participantResult.message)
-        setIsSubmitting(false)
-        return
-      }
+        if (!participantResult.isSuccess) {
+          setNameError(participantResult.message)
+          setIsSubmitting(false)
+          return
+        }
 
-      // Save participant for later use
-      setParticipant(participantResult.data)
+        // Save participant for later use
+        setParticipant(participantResult.data)
 
-      // Update selections
-      const selectionsResult = await updateParticipantSelectionsAction(
-        participantResult.data.id,
-        selectedItemIds
-      )
+        // Update selections
+        const selectionsResult = await updateParticipantSelectionsAction(
+          participantResult.data.id,
+          selectedItemIds
+        )
 
-      if (!selectionsResult.isSuccess) {
-        setNameError(selectionsResult.message)
-        setIsSubmitting(false)
-        return
+        if (!selectionsResult.isSuccess) {
+          setNameError(selectionsResult.message)
+          setIsSubmitting(false)
+          return
+        }
+      } else {
+        // In edit mode, just update selections
+        if (participant) {
+          const selectionsResult = await updateParticipantSelectionsAction(
+            participant.id,
+            selectedItemIds
+          )
+
+          if (!selectionsResult.isSuccess) {
+            setNameError(selectionsResult.message)
+            setIsSubmitting(false)
+            return
+          }
+        }
       }
 
       // Success!
@@ -114,7 +159,7 @@ export default function JoinBillClient({
     }
   }
 
-  if (isSuccess && participant) {
+  if (isSuccess && (participant || isEditMode)) {
     return (
       <div className="mx-auto max-w-md">
         <Card>
@@ -131,8 +176,8 @@ export default function JoinBillClient({
               </div>
             </div>
             <p>
-              You've successfully selected your items for the bill at{" "}
-              {bill.restaurantName || "the restaurant"}.
+              You've successfully {isEditMode ? "updated" : "selected"} your
+              items for the bill at {bill.restaurantName || "the restaurant"}.
             </p>
             <p className="text-muted-foreground text-sm">
               The host will be able to see your selections in the bill summary.
@@ -158,7 +203,9 @@ export default function JoinBillClient({
         <CardHeader>
           <CardTitle>{bill.restaurantName || "Restaurant Bill"}</CardTitle>
           <CardDescription>
-            Select the items you ordered to split the bill
+            {isEditMode
+              ? "Edit your selections"
+              : "Select the items you ordered to split the bill"}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -170,6 +217,7 @@ export default function JoinBillClient({
               onChange={handleNameChange}
               placeholder="Enter your name"
               className={nameError ? "border-destructive" : ""}
+              disabled={isEditMode}
             />
             {nameError && (
               <p className="text-destructive mt-1 text-sm">{nameError}</p>
@@ -202,7 +250,11 @@ export default function JoinBillClient({
               !name.trim() || selectedItemIds.length === 0 || isSubmitting
             }
           >
-            {isSubmitting ? "Saving..." : "Save My Selections"}
+            {isSubmitting
+              ? "Saving..."
+              : isEditMode
+                ? "Update Selections"
+                : "Save My Selections"}
           </Button>
         </CardFooter>
       </Card>
@@ -232,6 +284,15 @@ export default function JoinBillClient({
             <span>Total:</span>
             <span>{formatCurrency(parseFloat(bill.total))}</span>
           </div>
+        </div>
+        <div className="mt-4 flex justify-center">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push(`/summary/${sessionId}`)}
+          >
+            View Full Summary
+          </Button>
         </div>
       </div>
     </div>

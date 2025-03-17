@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Loader2, Plus, Trash2 } from "lucide-react"
 import { createBillAction } from "@/actions/db/bills-actions"
+import { BillData } from "@/lib/types"
 
 export default function CreateBill() {
   const router = useRouter()
@@ -30,6 +31,36 @@ export default function CreateBill() {
   ])
   const [tax, setTax] = useState("")
   const [tip, setTip] = useState("")
+
+  // Check for bill data in localStorage on component mount
+  useEffect(() => {
+    const storedData = localStorage.getItem("billData")
+    if (storedData) {
+      try {
+        const parsedData = JSON.parse(storedData) as BillData
+
+        // Update form state with the stored data
+        setRestaurantName(parsedData.restaurantName || "")
+
+        // Format items for the form
+        const formattedItems = parsedData.items.map(item => ({
+          name: item.name,
+          price: item.price.toString(),
+          quantity: item.quantity,
+          shared: item.shared
+        }))
+
+        setItems(formattedItems)
+        setTax(parsedData.tax?.toString() || "")
+        setTip(parsedData.tip?.toString() || "")
+
+        // Clear the stored data to prevent it from being used again
+        localStorage.removeItem("billData")
+      } catch (error) {
+        console.error("Error parsing stored bill data:", error)
+      }
+    }
+  }, [])
 
   // Calculate subtotal and total
   const subtotal = items.reduce((sum, item) => {

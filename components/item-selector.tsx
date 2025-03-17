@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { BillItemWithSelection } from "@/types"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -29,6 +29,8 @@ export default function ItemSelector({
   const [selectedItems, setSelectedItems] = useState<string[]>(
     participantSelections
   )
+  const initialRenderRef = useRef(true)
+  const prevSelectedItemsRef = useRef<string[]>(selectedItems)
 
   // Initialize shared items as selected
   useEffect(() => {
@@ -37,9 +39,28 @@ export default function ItemSelector({
     const initialSelections = [
       ...new Set([...participantSelections, ...sharedItemIds])
     ]
+
     setSelectedItems(initialSelections)
-    onChange(initialSelections)
-  }, [items, participantSelections, onChange])
+
+    // Only call onChange on initial mount
+    if (initialRenderRef.current) {
+      onChange(initialSelections)
+      initialRenderRef.current = false
+    }
+  }, [items, participantSelections]) // Remove onChange from dependencies
+
+  // Call onChange only when selectedItems changes due to user interaction
+  useEffect(() => {
+    // Skip the first render and when selectedItems is updated by the first useEffect
+    if (
+      !initialRenderRef.current &&
+      JSON.stringify(prevSelectedItemsRef.current) !==
+        JSON.stringify(selectedItems)
+    ) {
+      onChange(selectedItems)
+      prevSelectedItemsRef.current = [...selectedItems]
+    }
+  }, [selectedItems, onChange])
 
   const handleSelectionChange = (itemId: string, checked: boolean) => {
     let newSelectedItems: string[]
@@ -51,7 +72,6 @@ export default function ItemSelector({
     }
 
     setSelectedItems(newSelectedItems)
-    onChange(newSelectedItems)
   }
 
   const isItemSelected = (itemId: string) => {

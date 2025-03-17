@@ -3,6 +3,7 @@
 import { Suspense } from "react"
 import { getBillBySessionIdAction } from "@/actions/db/bills-actions"
 import JoinBillClient from "@/app/join/[sessionId]/_components/join-bill-client"
+import BillNavigation from "@/components/bill-navigation"
 
 interface JoinPageProps {
   params: {
@@ -10,10 +11,13 @@ interface JoinPageProps {
   }
 }
 
-export default function JoinPage({ params }: JoinPageProps) {
+export default async function JoinPage({ params }: JoinPageProps) {
   return (
     <div className="container max-w-4xl py-8">
-      <h1 className="mb-8 text-3xl font-bold">Join Bill</h1>
+      <div className="mb-8 flex items-center justify-between">
+        <h1 className="text-3xl font-bold">Join Bill</h1>
+        <BillNavigation sessionId={params.sessionId} />
+      </div>
       <Suspense fallback={<JoinPageSkeleton />}>
         <JoinBillFetcher sessionId={params.sessionId} />
       </Suspense>

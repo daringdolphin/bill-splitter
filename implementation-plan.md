@@ -152,13 +152,20 @@
   - **Step Dependencies**: None
   - **User Instructions**: None
 
-## Mocked AI Extraction
-- [ ] Step 22: Implement mocked receipt extraction
-  - **Task**: Update the receipt extraction function to return mock bill data for testing, simulating AI extraction until a real API is integrated.
+## AI Extraction
+- [ ] Step 22: Implement receipt extraction with Gemini  
+  - **Task**: Update the receipt extraction function to leverage the Gemini model **gemini-2.0-flash** and return structured output. The function should:
+    - Upload the receipt image using `GoogleAIFileManager`.
+    - Start a Gemini chat session with a prompt that asks for extracted bill info. Refer to bills-schema.
+    - Use the `responseSchema` within the generation configuration to enforce a structured JSON output. This schema should be designed to align with the database types (e.g., `billsTable` for restaurant details and `billItemsTable` for ordered items and pricing).
   - **Files**:
-    - `lib/receipt-extraction.ts`: Update extractReceiptData to return mock data with items, tax, and tip.
-  - **Step Dependencies**: None
-  - **User Instructions**: None
+    - `lib/receipt-extraction.ts`: Modify `extractReceiptData` to:
+      - Upload the image file via a helper function (e.g., `uploadToGemini`).
+      - Initiate a Gemini chat session with a configured `generationConfig` that includes the structured `responseSchema`.
+      - Parse the JSON response and return the structured receipt data.
+  - **Step Dependencies**: None  
+  - **User Instructions**: Ensure `GEMINI_API_KEY` is set in your environment variables. Follow the example code to integrate structured outputs using the `responseSchema` method, and adjust the schema to match your database types.
+
 
 ## Additional Features
 - [ ] Step 23: Implement image upload (optional)

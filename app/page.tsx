@@ -22,10 +22,16 @@ export default function Home() {
                 Upload a receipt, let AI extract the details, and share a link
                 with your friends to split the bill fairly.
               </p>
-              <div className="space-x-4">
+              <div className="mt-4 flex flex-wrap justify-center gap-4">
                 <Link href="/create-bill">
-                  <Button size="lg" className="mt-4">
+                  <Button size="lg">
                     Start Splitting <ArrowRight className="ml-2 size-4" />
+                  </Button>
+                </Link>
+                <Link href="/scan-receipt">
+                  <Button size="lg" variant="outline">
+                    <Receipt className="mr-2 size-4" />
+                    Scan Receipt
                   </Button>
                 </Link>
               </div>
