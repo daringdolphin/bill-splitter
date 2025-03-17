@@ -1,186 +1,194 @@
-"use client"
+"use server"
 
-import { useState, useEffect } from "react"
-import { useParams, useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from "@/components/ui/table"
-import type { BillData, BillItem } from "@/lib/types"
-import { calculateShares } from "@/lib/bill-calculations"
+import { Suspense } from "react"
+import { getBillBySessionIdAction } from "@/actions/db/bills-actions"
+import PaymentSummary from "@/components/payment-summary"
+import { SelectBillItem } from "@/db/schema/bill-items-schema"
+import { SelectItemSelection } from "@/db/schema/item-selections-schema"
+import { SelectParticipant } from "@/db/schema/participants-schema"
+import { SelectBill } from "@/db/schema/bills-schema"
+import { formatCurrency } from "@/lib/utils"
 
-export default function BillSummary() {
-  const params = useParams()
-  const router = useRouter()
-  const { sessionId } = params
-  const [billData, setBillData] = useState<BillData | null>(null)
-  const [shares, setShares] = useState<Record<string, number>>({})
-  const [unclaimedItems, setUnclaimedItems] = useState<BillItem[]>([])
-
-  useEffect(() => {
-    // Load bill data from localStorage
-    const storedData = localStorage.getItem("billData")
-    if (storedData) {
-      try {
-        const parsedData = JSON.parse(storedData)
-        if (parsedData.sessionId === sessionId) {
-          setBillData(parsedData)
-
-          // Calculate shares and unclaimed items
-          const { participantShares, unclaimed } = calculateShares(parsedData)
-          setShares(participantShares)
-          setUnclaimedItems(unclaimed)
-        } else {
-          router.push("/create-bill")
-        }
-      } catch (error) {
-        console.error("Error parsing bill data:", error)
-        router.push("/create-bill")
-      }
-    } else {
-      router.push("/create-bill")
-    }
-  }, [sessionId, router])
-
-  const handleNewBill = () => {
-    // Clear the current bill data
-    localStorage.removeItem("billData")
-    router.push("/create-bill")
+interface SummaryPageProps {
+  params: {
+    sessionId: string
   }
+}
 
-  if (!billData) {
+export default function SummaryPage({ params }: SummaryPageProps) {
+  return (
+    <div className="container max-w-4xl py-8">
+      <h1 className="mb-8 text-3xl font-bold">Bill Summary</h1>
+      <Suspense fallback={<SummaryPageSkeleton />}>
+        <SummaryFetcher sessionId={params.sessionId} />
+      </Suspense>
+    </div>
+  )
+}
+
+function SummaryPageSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="bg-muted h-[400px] w-full animate-pulse rounded-md"></div>
+      <div className="bg-muted h-[200px] w-full animate-pulse rounded-md"></div>
+    </div>
+  )
+}
+
+async function SummaryFetcher({ sessionId }: { sessionId: string }) {
+  const { isSuccess, data, message } = await getBillBySessionIdAction(sessionId)
+
+  if (!isSuccess || !data) {
     return (
-      <div className="container mx-auto px-4 py-8 text-center md:px-6">
-        <p>Loading bill data...</p>
+      <div className="bg-destructive/10 text-destructive rounded-md p-4">
+        <p>Error: {message}</p>
       </div>
     )
   }
 
+  const { bill, items, participants } = data
+
+  // Calculate participant shares and unclaimed items
+  const { participantShares, unclaimed } = calculateShares(
+    bill,
+    items,
+    participants
+  )
+
   return (
-    <div className="container mx-auto px-4 py-8 md:px-6">
-      <h1 className="mb-8 text-center text-3xl font-bold">Bill Summary</h1>
+    <div className="space-y-8">
+      <div className="bg-muted rounded-md p-4">
+        <h2 className="mb-4 text-xl font-semibold">
+          {bill.restaurantName ? bill.restaurantName : "Restaurant Bill"}
+        </h2>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <p className="text-muted-foreground text-sm">Host</p>
+            <p className="font-medium">{bill.hostName}</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground text-sm">Date</p>
+            <p className="font-medium">
+              {new Date(bill.createdAt).toLocaleDateString()}
+            </p>
+          </div>
+          <div>
+            <p className="text-muted-foreground text-sm">Participants</p>
+            <p className="font-medium">{participants.length}</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground text-sm">Total</p>
+            <p className="font-medium">
+              {formatCurrency(parseFloat(bill.total))}
+            </p>
+          </div>
+        </div>
+      </div>
 
-      <div className="mx-auto max-w-4xl space-y-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {billData.restaurantName || "Restaurant Bill"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div>
-              <h3 className="mb-4 text-lg font-medium">Payment Summary</h3>
+      <PaymentSummary
+        participantShares={participantShares}
+        unclaimed={unclaimed}
+        restaurantName={bill.restaurantName}
+      />
 
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Participant</TableHead>
-                    <TableHead>Items</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {Object.entries(shares).map(([name, amount]) => (
-                    <TableRow key={name}>
-                      <TableCell className="font-medium">{name}</TableCell>
-                      <TableCell>
-                        {billData.items
-                          .filter(item =>
-                            (item.selectedBy || []).includes(name)
-                          )
-                          .map(item => item.name)
-                          .join(", ")}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        ${amount.toFixed(2)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-
-            {unclaimedItems.length > 0 && (
-              <div>
-                <h3 className="mb-4 text-lg font-medium text-amber-600">
-                  Unclaimed Items
-                </h3>
-
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Item</TableHead>
-                      <TableHead>Quantity</TableHead>
-                      <TableHead className="text-right">Price</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {unclaimedItems.map(item => (
-                      <TableRow key={item.id}>
-                        <TableCell>{item.name}</TableCell>
-                        <TableCell>{item.quantity}</TableCell>
-                        <TableCell className="text-right">
-                          ${item.price.toFixed(2)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-
-            <div className="border-t pt-4">
-              <div className="flex justify-between text-lg font-medium">
-                <span>Total Bill:</span>
-                <span>
-                  $
-                  {(
-                    (billData.total || 0) +
-                    (billData.tax || 0) +
-                    (billData.tip || 0)
-                  ).toFixed(2)}
-                </span>
-              </div>
-              <div className="text-muted-foreground mt-2 flex justify-between text-sm">
-                <span>Items Subtotal:</span>
-                <span>${(billData.total || 0).toFixed(2)}</span>
-              </div>
-              <div className="text-muted-foreground flex justify-between text-sm">
-                <span>Tax:</span>
-                <span>${(billData.tax || 0).toFixed(2)}</span>
-              </div>
-              <div className="text-muted-foreground flex justify-between text-sm">
-                <span>Tip:</span>
-                <span>${(billData.tip || 0).toFixed(2)}</span>
-              </div>
-            </div>
-          </CardContent>
-          <CardFooter className="flex flex-col gap-4 sm:flex-row">
-            <Button
-              variant="outline"
-              className="w-full sm:w-auto"
-              onClick={() => router.push(`/share/${sessionId}`)}
-            >
-              Back to Share Page
-            </Button>
-            <Button className="w-full sm:w-auto" onClick={handleNewBill}>
-              Create New Bill
-            </Button>
-          </CardFooter>
-        </Card>
+      <div className="text-muted-foreground mt-8 text-center text-sm">
+        <p>Share this summary with your friends using the link:</p>
+        <p className="mt-1 font-medium">
+          {typeof window !== "undefined" ? window.location.origin : ""}/join/
+          {sessionId}
+        </p>
       </div>
     </div>
   )
+}
+
+// Helper function to calculate shares and unclaimed items
+function calculateShares(
+  bill: SelectBill,
+  items: SelectBillItem[],
+  participants: (SelectParticipant & { selections: SelectItemSelection[] })[]
+): {
+  participantShares: Record<string, number>
+  unclaimed: SelectBillItem[]
+} {
+  // Initialize shares for each participant
+  const participantShares: Record<string, number> = {}
+  participants.forEach(participant => {
+    participantShares[participant.name] = 0
+  })
+
+  // Track unclaimed items
+  const unclaimed: SelectBillItem[] = []
+
+  // Create a map of item selections by item ID
+  const itemSelections = new Map<string, string[]>()
+
+  // Populate the map with participant selections
+  participants.forEach(participant => {
+    participant.selections.forEach(selection => {
+      const itemId = selection.billItemId
+      if (!itemSelections.has(itemId)) {
+        itemSelections.set(itemId, [])
+      }
+      itemSelections.get(itemId)?.push(participant.name)
+    })
+  })
+
+  // Calculate individual item costs
+  items.forEach(item => {
+    const selectedBy = itemSelections.get(item.id) || []
+    const totalItemCost = parseFloat(item.price) * item.quantity
+
+    if (selectedBy.length === 0) {
+      // Item is unclaimed
+      unclaimed.push(item)
+    } else if (item.shared) {
+      // Shared item - split cost among all who selected it
+      const costPerPerson = totalItemCost / selectedBy.length
+      selectedBy.forEach(person => {
+        participantShares[person] += costPerPerson
+      })
+    } else {
+      // Individual item - assign full cost to each person who selected it
+      // For non-shared items, divide by the quantity if multiple people selected it
+      if (selectedBy.length > 1 && item.quantity >= selectedBy.length) {
+        // If quantity allows, split the item cost
+        const costPerPerson = totalItemCost / selectedBy.length
+        selectedBy.forEach(person => {
+          participantShares[person] += costPerPerson
+        })
+      } else {
+        // Otherwise, assign full cost to each selector
+        selectedBy.forEach(person => {
+          participantShares[person] += totalItemCost / selectedBy.length
+        })
+      }
+    }
+  })
+
+  // Get tax and tip from the bill
+  const tax = parseFloat(bill.tax)
+  const tip = parseFloat(bill.tip)
+
+  // Split tax and tip equally among all participants
+  if (participants.length > 0) {
+    const taxPerPerson = tax / participants.length
+    const tipPerPerson = tip / participants.length
+
+    participants.forEach(participant => {
+      participantShares[participant.name] += taxPerPerson + tipPerPerson
+    })
+  }
+
+  // Round all amounts to 2 decimal places
+  Object.keys(participantShares).forEach(person => {
+    participantShares[person] = Number.parseFloat(
+      participantShares[person].toFixed(2)
+    )
+  })
+
+  return {
+    participantShares,
+    unclaimed
+  }
 }
