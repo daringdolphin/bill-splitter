@@ -32,41 +32,27 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  const { userId } = await auth()
-
-  if (userId) {
-    const profileRes = await getProfileByUserIdAction(userId)
-    if (!profileRes.isSuccess) {
-      await createProfileAction({ userId })
-    }
-  }
-
   return (
-    <ClerkProvider>
-      <html lang="en" suppressHydrationWarning>
-        <body
-          className={cn(
-            "bg-background mx-auto min-h-screen w-full scroll-smooth antialiased",
-            inter.className
-          )}
+    <html lang="en" suppressHydrationWarning>
+      <body
+        className={cn(
+          "bg-background mx-auto min-h-screen w-full scroll-smooth antialiased",
+          inter.className
+        )}
+      >
+        <Providers
+          attribute="class"
+          defaultTheme="light"
+          enableSystem={false}
+          disableTransitionOnChange
         >
-          <Providers
-            attribute="class"
-            defaultTheme="light"
-            enableSystem={false}
-            disableTransitionOnChange
-          >
-            <PostHogUserIdentify />
-            <PostHogPageview />
+          {children}
 
-            {children}
+          <TailwindIndicator />
 
-            <TailwindIndicator />
-
-            <Toaster />
-          </Providers>
-        </body>
-      </html>
-    </ClerkProvider>
+          <Toaster />
+        </Providers>
+      </body>
+    </html>
   )
 }

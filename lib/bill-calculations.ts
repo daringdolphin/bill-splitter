@@ -32,10 +32,22 @@ export function calculateShares(billData: BillData): {
       })
     } else {
       // Individual item - assign full cost to each person who selected it
-      selectedBy.forEach(person => {
-        participantShares[person] =
-          (participantShares[person] || 0) + totalItemCost
-      })
+      // For non-shared items, divide by the quantity if multiple people selected it
+      // This handles cases where an item might be selected by multiple people but isn't marked as shared
+      if (selectedBy.length > 1 && quantity >= selectedBy.length) {
+        // If quantity allows, split the item cost
+        const costPerPerson = totalItemCost / selectedBy.length
+        selectedBy.forEach(person => {
+          participantShares[person] =
+            (participantShares[person] || 0) + costPerPerson
+        })
+      } else {
+        // Otherwise, assign full cost to each selector
+        selectedBy.forEach(person => {
+          participantShares[person] =
+            (participantShares[person] || 0) + totalItemCost
+        })
+      }
     }
   })
 
@@ -60,4 +72,19 @@ export function calculateShares(billData: BillData): {
     participantShares,
     unclaimed
   }
+}
+
+/**
+ * Calculates the total bill amount including items, tax, and tip
+ */
+export function calculateTotal(
+  items: BillItem[],
+  tax: number = 0,
+  tip: number = 0
+): number {
+  const itemsTotal = items.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0
+  )
+  return Number.parseFloat((itemsTotal + tax + tip).toFixed(2))
 }

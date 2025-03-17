@@ -1,7 +1,5 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -13,198 +11,334 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Upload, Camera, Loader2 } from "lucide-react"
-import { extractReceiptData } from "@/lib/receipt-extraction"
-import { useMobile } from "@/hooks/use-mobile"
+import { Switch } from "@/components/ui/switch"
+import { Loader2, Plus, Trash2 } from "lucide-react"
+import { createBillAction } from "@/actions/db/bills-actions"
 
 export default function CreateBill() {
   const router = useRouter()
-  const isMobile = useMobile()
-  const [isUploading, setIsUploading] = useState(false)
-  const [isExtracting, setIsExtracting] = useState(false)
-  const [receiptImage, setReceiptImage] = useState<string | null>(null)
-  const [manualEntry, setManualEntry] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      setIsUploading(true)
-      const reader = new FileReader()
-      reader.onload = event => {
-        setReceiptImage(event.target?.result as string)
-        setIsUploading(false)
-      }
-      reader.readAsDataURL(file)
+  // Form state
+  const [hostName, setHostName] = useState("")
+  const [restaurantName, setRestaurantName] = useState("")
+  const [items, setItems] = useState([
+    { name: "", price: "", quantity: 1, shared: false }
+  ])
+  const [tax, setTax] = useState("")
+  const [tip, setTip] = useState("")
+
+  // Calculate subtotal and total
+  const subtotal = items.reduce((sum, item) => {
+    const price = parseFloat(item.price) || 0
+    const quantity = item.quantity || 1
+    return sum + price * quantity
+  }, 0)
+
+  const taxAmount = parseFloat(tax) || 0
+  const tipAmount = parseFloat(tip) || 0
+  const total = subtotal + taxAmount + tipAmount
+
+  // Add a new empty item
+  const addItem = () => {
+    setItems([...items, { name: "", price: "", quantity: 1, shared: false }])
+  }
+
+  // Remove an item at a specific index
+  const removeItem = (index: number) => {
+    if (items.length > 1) {
+      setItems(items.filter((_, i) => i !== index))
     }
   }
 
-  const handleCameraCapture = () => {
-    const input = document.createElement("input")
-    input.type = "file"
-    input.accept = "image/*"
-    input.capture = "environment"
-    input.onchange = e =>
-      handleFileChange(e as React.ChangeEvent<HTMLInputElement>)
-    input.click()
+  // Update an item at a specific index
+  const updateItem = (
+    index: number,
+    field: "name" | "price" | "quantity" | "shared",
+    value: string | number | boolean
+  ) => {
+    const updatedItems = [...items]
+    updatedItems[index] = { ...updatedItems[index], [field]: value }
+    setItems(updatedItems)
   }
 
-  const handleUploadClick = () => {
-    const input = document.createElement("input")
-    input.type = "file"
-    input.accept = "image/*"
-    input.onchange = e =>
-      handleFileChange(e as React.ChangeEvent<HTMLInputElement>)
-    input.click()
-  }
+  // Handle form submission
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSubmitting(true)
+    setError(null)
 
-  const handleExtractData = async () => {
-    if (!receiptImage && !manualEntry) return
+    // Validate form
+    if (!hostName.trim()) {
+      setError("Host name is required")
+      setIsSubmitting(false)
+      return
+    }
 
-    setIsExtracting(true)
+    if (items.some(item => !item.name.trim() || !item.price)) {
+      setError("All items must have a name and price")
+      setIsSubmitting(false)
+      return
+    }
 
     try {
-      // In a real app, we would send the image to an API for processing
-      // Here we'll simulate the extraction with a timeout
-      const billData = await extractReceiptData(receiptImage)
+      // Format data for the action
+      const formattedItems = items.map(item => ({
+        name: item.name.trim(),
+        price: parseFloat(item.price) || 0,
+        quantity: item.quantity || 1,
+        shared: item.shared
+      }))
 
-      // Store the extracted data in localStorage for the next page
-      localStorage.setItem("billData", JSON.stringify(billData))
+      // Call the server action
+      const result = await createBillAction({
+        hostName: hostName.trim(),
+        restaurantName: restaurantName.trim() || undefined,
+        items: formattedItems,
+        tax: taxAmount,
+        tip: tipAmount,
+        total
+      })
 
-      // Navigate to the review page
-      router.push("/review-bill")
-    } catch (error) {
-      console.error("Error extracting receipt data:", error)
-      // Handle error
+      if (result.isSuccess) {
+        // Redirect to the review page with the session ID
+        router.push(`/review-bill/${result.data.sessionId}`)
+      } else {
+        setError(result.message)
+      }
+    } catch (err) {
+      setError("An unexpected error occurred. Please try again.")
+      console.error(err)
     } finally {
-      setIsExtracting(false)
+      setIsSubmitting(false)
     }
-  }
-
-  const handleManualEntry = () => {
-    // Create an empty bill template
-    const emptyBill = {
-      restaurantName: "",
-      items: [],
-      tax: 0,
-      tip: 0,
-      total: 0
-    }
-
-    localStorage.setItem("billData", JSON.stringify(emptyBill))
-    router.push("/review-bill")
   }
 
   return (
     <div className="container mx-auto px-4 py-8 md:px-6">
       <h1 className="mb-8 text-center text-3xl font-bold">Create New Bill</h1>
 
-      <div className="mx-auto max-w-md">
-        <Card>
-          <CardHeader>
-            <CardTitle>Upload Receipt</CardTitle>
-            <CardDescription>
-              Upload a photo of your receipt or enter bill details manually
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {!manualEntry && (
+      <div className="mx-auto max-w-2xl">
+        <form onSubmit={handleSubmit}>
+          <Card>
+            <CardHeader>
+              <CardTitle>Bill Details</CardTitle>
+              <CardDescription>
+                Enter the bill details to split with your friends
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent className="space-y-6">
+              {/* Basic Info */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="hostName">Your Name (Host) *</Label>
+                  <Input
+                    id="hostName"
+                    value={hostName}
+                    onChange={e => setHostName(e.target.value)}
+                    placeholder="Enter your name"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="restaurantName">Restaurant Name</Label>
+                  <Input
+                    id="restaurantName"
+                    value={restaurantName}
+                    onChange={e => setRestaurantName(e.target.value)}
+                    placeholder="Enter restaurant name"
+                  />
+                </div>
+              </div>
+
+              {/* Items */}
               <div className="space-y-4">
-                <div className="flex flex-col items-center justify-center gap-4">
+                <div className="flex items-center justify-between">
+                  <Label>Items</Label>
                   <Button
+                    type="button"
                     variant="outline"
-                    className="h-20 w-full"
-                    onClick={handleUploadClick}
-                    disabled={isUploading || isExtracting}
+                    size="sm"
+                    onClick={addItem}
                   >
-                    <Upload className="mr-2 size-5" />
-                    Upload Receipt Image
+                    <Plus className="mr-1 size-4" />
+                    Add Item
                   </Button>
+                </div>
 
-                  {isMobile && (
-                    <Button
-                      variant="outline"
-                      className="h-20 w-full"
-                      onClick={handleCameraCapture}
-                      disabled={isUploading || isExtracting}
+                <div className="space-y-3">
+                  {items.map((item, index) => (
+                    <div
+                      key={index}
+                      className="grid grid-cols-12 gap-2 rounded-md border p-3"
                     >
-                      <Camera className="mr-2 size-5" />
-                      Capture with Camera
-                    </Button>
-                  )}
-                </div>
+                      <div className="col-span-12 md:col-span-5">
+                        <Input
+                          value={item.name}
+                          onChange={e =>
+                            updateItem(index, "name", e.target.value)
+                          }
+                          placeholder="Item name"
+                        />
+                      </div>
 
-                {receiptImage && (
-                  <div className="mt-4">
-                    <Label>Receipt Preview</Label>
-                    <div className="mt-2 overflow-hidden rounded-md border">
-                      <img
-                        src={receiptImage || "/placeholder.svg"}
-                        alt="Receipt preview"
-                        className="max-h-[300px] w-full object-contain"
-                      />
+                      <div className="col-span-4 md:col-span-2">
+                        <Input
+                          type="number"
+                          min="1"
+                          value={item.quantity}
+                          onChange={e =>
+                            updateItem(
+                              index,
+                              "quantity",
+                              parseInt(e.target.value) || 1
+                            )
+                          }
+                          placeholder="Qty"
+                        />
+                      </div>
+
+                      <div className="col-span-6 md:col-span-3">
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2">
+                            $
+                          </span>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={item.price}
+                            onChange={e =>
+                              updateItem(index, "price", e.target.value)
+                            }
+                            placeholder="0.00"
+                            className="pl-7"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="col-span-1 flex items-center justify-center">
+                        <div className="flex items-center space-x-2">
+                          <Switch
+                            id={`shared-${index}`}
+                            checked={item.shared}
+                            onCheckedChange={value =>
+                              updateItem(index, "shared", value)
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      <div className="col-span-1 flex items-center justify-center">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeItem(index)}
+                          disabled={items.length === 1}
+                        >
+                          <Trash2 className="text-muted-foreground size-4" />
+                        </Button>
+                      </div>
                     </div>
+                  ))}
+                </div>
+
+                <div className="flex justify-between text-sm">
+                  <span>
+                    Shared items will be split among those who select them
+                  </span>
+                </div>
+              </div>
+
+              {/* Tax and Tip */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="tax">Tax</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2">
+                      $
+                    </span>
+                    <Input
+                      id="tax"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={tax}
+                      onChange={e => setTax(e.target.value)}
+                      placeholder="0.00"
+                      className="pl-7"
+                    />
                   </div>
-                )}
+                </div>
 
-                <div className="text-center">
-                  <button
-                    type="button"
-                    className="text-primary text-sm underline"
-                    onClick={() => setManualEntry(true)}
-                    disabled={isUploading || isExtracting}
-                  >
-                    Or enter bill details manually
-                  </button>
+                <div className="space-y-2">
+                  <Label htmlFor="tip">Tip</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2">
+                      $
+                    </span>
+                    <Input
+                      id="tip"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={tip}
+                      onChange={e => setTip(e.target.value)}
+                      placeholder="0.00"
+                      className="pl-7"
+                    />
+                  </div>
                 </div>
               </div>
-            )}
 
-            {manualEntry && (
-              <div className="space-y-4">
-                <p className="text-muted-foreground text-sm">
-                  You'll be able to add items on the next screen.
-                </p>
-                <div className="text-center">
-                  <button
-                    type="button"
-                    className="text-primary text-sm underline"
-                    onClick={() => setManualEntry(false)}
-                    disabled={isExtracting}
-                  >
-                    Or upload a receipt image
-                  </button>
+              {/* Summary */}
+              <div className="bg-muted rounded-md p-4">
+                <div className="flex justify-between">
+                  <span>Subtotal:</span>
+                  <span>${subtotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Tax:</span>
+                  <span>${taxAmount.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Tip:</span>
+                  <span>${tipAmount.toFixed(2)}</span>
+                </div>
+                <div className="mt-2 flex justify-between border-t pt-2 font-medium">
+                  <span>Total:</span>
+                  <span>${total.toFixed(2)}</span>
                 </div>
               </div>
-            )}
-          </CardContent>
-          <CardFooter>
-            {!manualEntry ? (
-              <Button
-                className="w-full"
-                onClick={handleExtractData}
-                disabled={!receiptImage || isUploading || isExtracting}
-              >
-                {isExtracting ? (
+
+              {/* Error message */}
+              {error && (
+                <div className="bg-destructive/15 text-destructive rounded-md p-3 text-sm">
+                  {error}
+                </div>
+              )}
+            </CardContent>
+
+            <CardFooter>
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 size-4 animate-spin" />
-                    Extracting Data...
+                    Creating Bill...
                   </>
                 ) : (
-                  "Extract Receipt Data"
+                  "Create Bill"
                 )}
               </Button>
-            ) : (
-              <Button
-                className="w-full"
-                onClick={handleManualEntry}
-                disabled={isExtracting}
-              >
-                Continue to Manual Entry
-              </Button>
-            )}
-          </CardFooter>
-        </Card>
+            </CardFooter>
+          </Card>
+        </form>
       </div>
     </div>
   )
