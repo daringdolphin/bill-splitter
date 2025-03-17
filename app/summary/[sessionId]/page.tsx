@@ -13,6 +13,7 @@ import { BillItem } from "@/lib/types"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import BillNavigation from "@/components/bill-navigation"
+import CopyLinkButton from "./_components/copy-link-button"
 
 interface SummaryPageProps {
   params: Promise<{
@@ -150,11 +151,14 @@ async function SummaryFetcher({ sessionId }: { sessionId: string }) {
       <PaymentSummary summary={paymentSummary} sessionId={sessionId} />
 
       <div className="text-muted-foreground mt-8 text-center text-sm">
-        <p>Share this summary with your friends using the link:</p>
-        <p className="mt-1 font-medium">
-          {typeof window !== "undefined" ? window.location.origin : ""}/join/
-          {sessionId}
-        </p>
+        <p>Share the link:</p>
+        <div className="mt-1 flex items-center justify-center gap-2">
+          <p className="font-medium">
+            {typeof window !== "undefined" ? window.location.origin : ""}/join/
+            {sessionId}
+          </p>
+          <CopyLinkButton sessionId={sessionId} />
+        </div>
       </div>
     </div>
   )

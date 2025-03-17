@@ -1,8 +1,24 @@
-import Link from "next/link"
+"use client"
+
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, Receipt, Users, DollarSign } from "lucide-react"
+import { Camera, Upload, Users, DollarSign, Receipt } from "lucide-react"
+import ReceiptProcessor from "@/components/receipt-processor"
 
 export default function Home() {
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [method, setMethod] = useState<"capture" | "upload">("capture")
+
+  const handleCaptureClick = () => {
+    setMethod("capture")
+    setIsDialogOpen(true)
+  }
+
+  const handleUploadClick = () => {
+    setMethod("upload")
+    setIsDialogOpen(true)
+  }
+
   return (
     <div className="flex min-h-screen flex-col">
       <header className="border-b">
@@ -23,17 +39,14 @@ export default function Home() {
                 with your friends to split the bill fairly.
               </p>
               <div className="mt-4 flex flex-wrap justify-center gap-4">
-                <Link href="/create-bill">
-                  <Button size="lg">
-                    Start Splitting <ArrowRight className="ml-2 size-4" />
-                  </Button>
-                </Link>
-                <Link href="/scan-receipt">
-                  <Button size="lg" variant="outline">
-                    <Receipt className="mr-2 size-4" />
-                    Scan Receipt
-                  </Button>
-                </Link>
+                <Button size="lg" onClick={handleCaptureClick}>
+                  <Camera className="mr-2 size-4" />
+                  Capture Receipt
+                </Button>
+                <Button size="lg" variant="outline" onClick={handleUploadClick}>
+                  <Upload className="mr-2 size-4" />
+                  Upload Receipt
+                </Button>
               </div>
             </div>
           </div>
@@ -84,6 +97,12 @@ export default function Home() {
           </p>
         </div>
       </footer>
+
+      <ReceiptProcessor
+        method={method}
+        isOpen={isDialogOpen}
+        onClose={() => setIsDialogOpen(false)}
+      />
     </div>
   )
 }

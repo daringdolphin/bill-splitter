@@ -52,7 +52,7 @@ export default function ReviewBillClient({
   // New states for the item selection step
   const [currentStep, setCurrentStep] = useState<
     "review" | "select" | "success"
-  >("review")
+  >("select")
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([])
   const [isSubmittingSelections, setIsSubmittingSelections] = useState(false)
 
@@ -216,10 +216,7 @@ export default function ReviewBillClient({
         }
       }
 
-      // TODO: Handle new items (would require a separate action)
-
-      // Move to the selection step instead of directly updating host's selections
-      setCurrentStep("select")
+      // We're already in the selection step, so no need to set it here
     } catch (error) {
       console.error("Error saving bill:", error)
       toast({
@@ -292,8 +289,11 @@ export default function ReviewBillClient({
       <div className="mx-auto max-w-md space-y-8">
         <Card>
           <CardHeader>
-            <CardTitle>{bill.restaurantName || "Restaurant Bill"}</CardTitle>
-            <CardDescription>Select the items you ordered</CardDescription>
+            <CardTitle>Select What You Ate</CardTitle>
+            <CardDescription>
+              Choose the items you ordered at{" "}
+              {bill.restaurantName || "the restaurant"}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div>
@@ -314,13 +314,20 @@ export default function ReviewBillClient({
               />
             </div>
           </CardContent>
-          <CardFooter>
+          <CardFooter className="flex flex-col space-y-2">
             <Button
               className="w-full"
               onClick={handleSubmitSelections}
               disabled={selectedItemIds.length === 0 || isSubmittingSelections}
             >
               {isSubmittingSelections ? "Saving..." : "Save My Selections"}
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => setCurrentStep("review")}
+            >
+              Back to Review
             </Button>
           </CardFooter>
         </Card>
