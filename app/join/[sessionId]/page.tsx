@@ -9,7 +9,7 @@ interface JoinPageProps {
   params: Promise<{
     sessionId: string
   }>
-  searchParams: { participantId?: string }
+  searchParams: Promise<{ participantId?: string }>
 }
 
 export default async function JoinPage({
@@ -17,7 +17,7 @@ export default async function JoinPage({
   searchParams
 }: JoinPageProps) {
   const { sessionId } = await params
-  const { participantId } = searchParams
+  const { participantId } = await searchParams
 
   return (
     <div className="container max-w-4xl py-8">
