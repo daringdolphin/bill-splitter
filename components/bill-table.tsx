@@ -69,32 +69,32 @@ export default function BillTable({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Item</TableHead>
-            <TableHead className="w-[80px] text-right">Qty</TableHead>
-            <TableHead className="w-[100px] text-right">Price</TableHead>
+            <TableHead className="min-w-[120px]">Item</TableHead>
+            <TableHead className="w-[60px] text-right">Qty</TableHead>
+            <TableHead className="w-[80px] text-right">Price</TableHead>
             {editable && (
-              <TableHead className="w-[80px] text-center">Shared</TableHead>
+              <TableHead className="w-[70px] text-center">Shared</TableHead>
             )}
             {selectable && (
-              <TableHead className="w-[80px] text-center">Select</TableHead>
+              <TableHead className="w-[70px] text-center">Select</TableHead>
             )}
           </TableRow>
         </TableHeader>
         <TableBody>
           {billItems.map((item, index) => (
             <TableRow key={item.id}>
-              <TableCell>
+              <TableCell className="font-medium">
                 {editable ? (
                   <Input
                     value={item.name}
                     onChange={e =>
                       handleItemChange(index, "name", e.target.value)
                     }
-                    className="h-8"
+                    className="h-8 text-sm"
                   />
                 ) : (
                   <div className="flex items-center">
-                    <span>{item.name}</span>
+                    <span className="truncate">{item.name}</span>
                     {item.shared && (
                       <span className="text-muted-foreground ml-2 text-xs">
                         (shared)
@@ -112,7 +112,7 @@ export default function BillTable({
                     onChange={e =>
                       handleItemChange(index, "quantity", e.target.value)
                     }
-                    className="h-8 w-16 text-right"
+                    className="h-8 w-14 text-right text-sm"
                   />
                 ) : (
                   item.quantity
@@ -125,7 +125,7 @@ export default function BillTable({
                     onChange={e =>
                       handleItemChange(index, "price", e.target.value)
                     }
-                    className="h-8 w-24 text-right"
+                    className="h-8 w-20 text-right text-sm"
                     placeholder="0.00"
                   />
                 ) : (
@@ -133,7 +133,7 @@ export default function BillTable({
                 )}
               </TableCell>
               {editable && (
-                <TableCell className="text-center">
+                <TableCell className="p-2 text-center">
                   <div className="flex justify-center">
                     <Switch
                       checked={item.shared}
@@ -145,7 +145,7 @@ export default function BillTable({
                 </TableCell>
               )}
               {selectable && (
-                <TableCell className="text-center">
+                <TableCell className="p-2 text-center">
                   <div className="flex justify-center">
                     <Checkbox
                       checked={item.selected}

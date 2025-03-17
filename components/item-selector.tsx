@@ -84,9 +84,9 @@ export default function ItemSelector({
         <TableHeader>
           <TableRow>
             <TableHead className="w-[50px]"></TableHead>
-            <TableHead>Item</TableHead>
-            <TableHead className="w-[80px] text-right">Qty</TableHead>
-            <TableHead className="w-[100px] text-right">Price</TableHead>
+            <TableHead className="min-w-[120px]">Item</TableHead>
+            <TableHead className="w-[60px] text-right">Qty</TableHead>
+            <TableHead className="w-[80px] text-right">Price</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -98,7 +98,7 @@ export default function ItemSelector({
                 isItemSelected(item.id) && !item.shared && "bg-primary/10"
               )}
             >
-              <TableCell>
+              <TableCell className="p-2">
                 <Checkbox
                   checked={isItemSelected(item.id)}
                   onCheckedChange={checked =>
@@ -107,18 +107,20 @@ export default function ItemSelector({
                   disabled={item.shared} // Shared items cannot be unselected
                 />
               </TableCell>
-              <TableCell>
+              <TableCell className="font-medium">
                 <div className="flex items-center">
-                  <span>{item.name}</span>
+                  <span className="truncate">{item.name}</span>
                   {item.shared && (
                     <span className="text-muted-foreground ml-2 text-xs">
-                      (shared by all)
+                      (shared)
                     </span>
                   )}
                 </div>
               </TableCell>
-              <TableCell className="text-right">{item.quantity}</TableCell>
-              <TableCell className="text-right">
+              <TableCell className="text-right text-sm">
+                {item.quantity}
+              </TableCell>
+              <TableCell className="text-right text-sm">
                 ${parseFloat(item.price.toString()).toFixed(2)}
               </TableCell>
             </TableRow>

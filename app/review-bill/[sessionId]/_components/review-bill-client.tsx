@@ -286,16 +286,16 @@ export default function ReviewBillClient({
   // If we're in the selection step, show the item selection UI
   if (currentStep === "select") {
     return (
-      <div className="mx-auto max-w-md space-y-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Select What You Ate</CardTitle>
+      <div className="mx-auto w-full max-w-md space-y-6 px-4">
+        <Card className="shadow-sm">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-xl">Select What You Ate</CardTitle>
             <CardDescription>
               Choose the items you ordered at{" "}
               {bill.restaurantName || "the restaurant"}
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-4 px-3 sm:px-6">
             <div>
               <h3 className="mb-2 text-lg font-medium">Bill Items</h3>
               <p className="text-muted-foreground mb-4 text-sm">
@@ -310,11 +310,11 @@ export default function ReviewBillClient({
                 }))}
                 participantSelections={selectedItemIds}
                 onChange={handleSelectionChange}
-                className=""
+                className="max-w-full"
               />
             </div>
           </CardContent>
-          <CardFooter className="flex flex-col space-y-2">
+          <CardFooter className="flex flex-col space-y-3 px-3 pb-4 pt-2 sm:px-6">
             <Button
               className="w-full"
               onClick={handleSubmitSelections}
@@ -366,8 +366,8 @@ export default function ReviewBillClient({
   // If we're in the success step, show the success UI
   if (currentStep === "success") {
     return (
-      <div className="mx-auto max-w-md">
-        <Card>
+      <div className="mx-auto w-full max-w-md px-4">
+        <Card className="shadow-sm">
           <CardHeader>
             <CardTitle className="text-center">Thank You!</CardTitle>
             <CardDescription className="text-center">
@@ -389,7 +389,7 @@ export default function ReviewBillClient({
               their items.
             </p>
           </CardContent>
-          <CardFooter>
+          <CardFooter className="pb-6">
             <Button className="w-full" onClick={handleGoToShare}>
               Share Bill
               <ArrowRight className="ml-2 size-4" />
@@ -402,12 +402,12 @@ export default function ReviewBillClient({
 
   // Default view (review step)
   return (
-    <div className="mx-auto max-w-4xl space-y-8">
-      <Card>
-        <CardHeader>
+    <div className="mx-auto w-full max-w-4xl space-y-6 px-4">
+      <Card className="shadow-sm">
+        <CardHeader className="pb-4">
           <CardTitle>Restaurant Information</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-3 sm:px-6">
           <div className="space-y-4">
             <div>
               <Label htmlFor="restaurantName">Restaurant Name</Label>
@@ -434,34 +434,36 @@ export default function ReviewBillClient({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
+      <Card className="shadow-sm">
+        <CardHeader className="pb-4">
           <CardTitle>Bill Items</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-3 sm:px-6">
           <div className="space-y-6">
-            <BillTable
-              items={items}
-              editable={true}
-              onItemsChange={updatedItems => {
-                setItems(updatedItems)
-                // Process any updates that need to be handled
-                updatedItems.forEach((item, index) => {
-                  const originalItem = items[index]
-                  if (originalItem && originalItem.id === item.id) {
-                    // Check if shared status changed
-                    if (originalItem.shared !== item.shared) {
-                      handleToggleShared(item.id)
-                    }
+            <div className="-mx-3 overflow-x-auto sm:mx-0">
+              <BillTable
+                items={items}
+                editable={true}
+                onItemsChange={updatedItems => {
+                  setItems(updatedItems)
+                  // Process any updates that need to be handled
+                  updatedItems.forEach((item, index) => {
+                    const originalItem = items[index]
+                    if (originalItem && originalItem.id === item.id) {
+                      // Check if shared status changed
+                      if (originalItem.shared !== item.shared) {
+                        handleToggleShared(item.id)
+                      }
 
-                    // Check if selection changed
-                    if (originalItem.selected !== item.selected) {
-                      handleHostSelection(item.id, !!item.selected)
+                      // Check if selection changed
+                      if (originalItem.selected !== item.selected) {
+                        handleHostSelection(item.id, !!item.selected)
+                      }
                     }
-                  }
-                })
-              }}
-            />
+                  })
+                }}
+              />
+            </div>
 
             {/* Item deletion buttons */}
             {items.length > 0 && (
@@ -473,54 +475,57 @@ export default function ReviewBillClient({
                       key={item.id}
                       variant="outline"
                       size="sm"
-                      className="justify-start"
+                      className="justify-start truncate text-sm"
                       onClick={() => handleDeleteItem(item.id)}
                     >
-                      <Trash2 className="text-destructive mr-2 size-4" />
-                      {item.name}
+                      <Trash2 className="text-destructive mr-2 size-4 shrink-0" />
+                      <span className="truncate">{item.name}</span>
                     </Button>
                   ))}
                 </div>
               </div>
             )}
 
-            <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-4">
-              <div className="md:col-span-2">
-                <Label htmlFor="newItemName">Item Name</Label>
-                <Input
-                  id="newItemName"
-                  value={newItemName}
-                  onChange={e => setNewItemName(e.target.value)}
-                  placeholder="Enter item name"
-                />
-              </div>
-              <div>
-                <Label htmlFor="newItemQuantity">Quantity</Label>
-                <Input
-                  id="newItemQuantity"
-                  type="number"
-                  min="1"
-                  value={newItemQuantity}
-                  onChange={e => setNewItemQuantity(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label htmlFor="newItemPrice">Price</Label>
-                <Input
-                  id="newItemPrice"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={newItemPrice}
-                  onChange={e => setNewItemPrice(e.target.value)}
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="md:col-span-4">
+            <div className="space-y-4">
+              <h3 className="text-sm font-medium">Add New Item</h3>
+              <div className="grid grid-cols-1 gap-3">
+                <div>
+                  <Label htmlFor="newItemName">Item Name</Label>
+                  <Input
+                    id="newItemName"
+                    value={newItemName}
+                    onChange={e => setNewItemName(e.target.value)}
+                    placeholder="Enter item name"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="newItemQuantity">Quantity</Label>
+                    <Input
+                      id="newItemQuantity"
+                      type="number"
+                      min="1"
+                      value={newItemQuantity}
+                      onChange={e => setNewItemQuantity(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="newItemPrice">Price</Label>
+                    <Input
+                      id="newItemPrice"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={newItemPrice}
+                      onChange={e => setNewItemPrice(e.target.value)}
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
                 <Button
                   onClick={handleAddItem}
                   disabled={!newItemName || !newItemPrice}
-                  className="w-full"
+                  className="mt-1 w-full"
                 >
                   <Plus className="mr-2 size-4" />
                   Add Item
@@ -531,12 +536,12 @@ export default function ReviewBillClient({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
+      <Card className="shadow-sm">
+        <CardHeader className="pb-4">
           <CardTitle>Additional Charges</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <CardContent className="px-3 sm:px-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <Label htmlFor="tax">Tax</Label>
               <Input
@@ -573,13 +578,14 @@ export default function ReviewBillClient({
             </div>
           </div>
         </CardContent>
-        <CardFooter className="flex justify-between">
-          <div className="text-lg font-semibold">
+        <CardFooter className="flex flex-col gap-4 px-3 pb-6 pt-4 sm:flex-row sm:justify-between sm:px-6">
+          <div className="w-full text-center text-lg font-semibold sm:w-auto sm:text-left">
             Total: ${calculateTotal()}
           </div>
           <Button
             onClick={handleSaveAndContinue}
             disabled={isSaving || items.length === 0}
+            className="w-full sm:w-auto"
           >
             {isSaving ? "Saving..." : "Continue"}
             {!isSaving && <ArrowRight className="ml-2 size-4" />}

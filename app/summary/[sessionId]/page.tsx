@@ -25,9 +25,9 @@ export default async function SummaryPage({ params }: SummaryPageProps) {
   const { sessionId } = await params
 
   return (
-    <div className="container max-w-4xl py-8">
-      <div className="mb-8 flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Bill Summary</h1>
+    <div className="container max-w-4xl px-4 py-6 md:py-8">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-bold md:text-3xl">Bill Summary</h1>
         <BillNavigation sessionId={sessionId} />
       </div>
       <Suspense fallback={<SummaryPageSkeleton />}>
@@ -40,8 +40,8 @@ export default async function SummaryPage({ params }: SummaryPageProps) {
 function SummaryPageSkeleton() {
   return (
     <div className="space-y-4">
-      <div className="bg-muted h-[400px] w-full animate-pulse rounded-md"></div>
-      <div className="bg-muted h-[200px] w-full animate-pulse rounded-md"></div>
+      <div className="bg-muted h-[200px] w-full animate-pulse rounded-md md:h-[400px]"></div>
+      <div className="bg-muted h-[150px] w-full animate-pulse rounded-md md:h-[200px]"></div>
     </div>
   )
 }
@@ -119,29 +119,39 @@ async function SummaryFetcher({ sessionId }: { sessionId: string }) {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 md:space-y-8">
       <div className="bg-muted rounded-md p-4">
-        <h2 className="mb-4 text-xl font-semibold">
+        <h2 className="mb-3 text-lg font-semibold md:mb-4 md:text-xl">
           {bill.restaurantName ? bill.restaurantName : "Restaurant Bill"}
         </h2>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 md:gap-4">
           <div>
-            <p className="text-muted-foreground text-sm">Host</p>
-            <p className="font-medium">{bill.hostName}</p>
+            <p className="text-muted-foreground text-xs font-medium md:text-sm">
+              Host
+            </p>
+            <p className="text-sm font-medium md:text-base">{bill.hostName}</p>
           </div>
           <div>
-            <p className="text-muted-foreground text-sm">Date</p>
-            <p className="font-medium">
+            <p className="text-muted-foreground text-xs font-medium md:text-sm">
+              Date
+            </p>
+            <p className="text-sm font-medium md:text-base">
               {new Date(bill.createdAt).toLocaleDateString()}
             </p>
           </div>
           <div>
-            <p className="text-muted-foreground text-sm">Participants</p>
-            <p className="font-medium">{participants.length}</p>
+            <p className="text-muted-foreground text-xs font-medium md:text-sm">
+              Participants
+            </p>
+            <p className="text-sm font-medium md:text-base">
+              {participants.length}
+            </p>
           </div>
           <div>
-            <p className="text-muted-foreground text-sm">Total</p>
-            <p className="font-medium">
+            <p className="text-muted-foreground text-xs font-medium md:text-sm">
+              Total
+            </p>
+            <p className="text-sm font-medium md:text-base">
               {formatCurrency(parseFloat(bill.total))}
             </p>
           </div>
@@ -150,10 +160,10 @@ async function SummaryFetcher({ sessionId }: { sessionId: string }) {
 
       <PaymentSummary summary={paymentSummary} sessionId={sessionId} />
 
-      <div className="text-muted-foreground mt-8 text-center text-sm">
-        <p>Share the link:</p>
-        <div className="mt-1 flex items-center justify-center gap-2">
-          <p className="font-medium">
+      <div className="text-muted-foreground mt-6 rounded-md border p-4 text-center md:mt-8">
+        <p className="text-xs md:text-sm">Share the link:</p>
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+          <p className="break-all text-xs font-medium md:text-sm">
             {typeof window !== "undefined" ? window.location.origin : ""}/join/
             {sessionId}
           </p>

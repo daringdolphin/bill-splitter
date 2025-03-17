@@ -9,8 +9,8 @@ export default function Home() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [method, setMethod] = useState<"capture" | "upload">("capture")
 
+  setMethod("capture")
   const handleCaptureClick = () => {
-    setMethod("capture")
     setIsDialogOpen(true)
   }
 
@@ -39,11 +39,7 @@ export default function Home() {
                 with your friends to split the bill fairly.
               </p>
               <div className="mt-4 flex flex-wrap justify-center gap-4">
-                <Button size="lg" onClick={handleCaptureClick}>
-                  <Camera className="mr-2 size-4" />
-                  Capture Receipt
-                </Button>
-                <Button size="lg" variant="outline" onClick={handleUploadClick}>
+                <Button size="lg" onClick={handleUploadClick}>
                   <Upload className="mr-2 size-4" />
                   Upload Receipt
                 </Button>
