@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { SelectBill } from "@/db/schema/bills-schema"
 import { SelectBillItem } from "@/db/schema/bill-items-schema"
@@ -59,23 +59,39 @@ export default function JoinBillClient({
   useEffect(() => {
     const fetchParticipant = async () => {
       if (participantId) {
-        const result = await getParticipantWithSelectionsAction(participantId)
-        if (result.isSuccess && result.data) {
-          setParticipant(result.data)
-          setName(result.data.name)
+        try {
+          const result = await getParticipantWithSelectionsAction(participantId)
+          if (result.isSuccess && result.data) {
+            setParticipant(result.data)
+            setName(result.data.name)
 
-          // Set selected items from participant's selections
-          const selectedIds = result.data.selections.map(s => s.billItemId)
-          setSelectedItemIds(selectedIds)
+            // Set selected items from participant's selections
+            const selectedIds = result.data.selections.map(s => s.billItemId)
+            setSelectedItemIds(prevIds => {
+              // If we already have selections, don't overwrite them
+              if (
+                prevIds.length === 0 ||
+                prevIds.every(id =>
+                  items.find(item => item.shared && item.id === id)
+                )
+              ) {
+                return selectedIds
+              }
+              return prevIds
+            })
 
-          setIsEditMode(true)
-        } else {
-          console.error("Failed to fetch participant:", result.message)
+            setIsEditMode(true)
+          } else {
+            console.error("Failed to fetch participant:", result.message)
+          }
+        } catch (error) {
+          console.error("Error fetching participant:", error)
         }
       }
     }
 
     fetchParticipant()
+    // Only run this effect when participantId changes
   }, [participantId])
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -83,9 +99,10 @@ export default function JoinBillClient({
     setNameError("")
   }
 
-  const handleSelectionChange = (itemIds: string[]) => {
+  // Use useCallback to memoize the handler
+  const handleSelectionChange = useCallback((itemIds: string[]) => {
     setSelectedItemIds(itemIds)
-  }
+  }, [])
 
   const handleSubmit = async () => {
     if (!name.trim()) {

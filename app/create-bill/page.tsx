@@ -31,6 +31,8 @@ export default function CreateBill() {
   ])
   const [tax, setTax] = useState("")
   const [tip, setTip] = useState("")
+  const [subtotalInput, setSubtotalInput] = useState("")
+  const [totalInput, setTotalInput] = useState("")
 
   // Check for bill data in localStorage on component mount
   useEffect(() => {
@@ -63,7 +65,7 @@ export default function CreateBill() {
   }, [])
 
   // Calculate subtotal and total
-  const subtotal = items.reduce((sum, item) => {
+  const calculatedSubtotal = items.reduce((sum, item) => {
     const price = parseFloat(item.price) || 0
     const quantity = item.quantity || 1
     return sum + price * quantity
@@ -71,7 +73,26 @@ export default function CreateBill() {
 
   const taxAmount = parseFloat(tax) || 0
   const tipAmount = parseFloat(tip) || 0
-  const total = subtotal + taxAmount + tipAmount
+
+  // Use input values if provided, otherwise use calculated values
+  const subtotal = subtotalInput
+    ? parseFloat(subtotalInput)
+    : calculatedSubtotal
+  const total = totalInput
+    ? parseFloat(totalInput)
+    : subtotal + taxAmount + tipAmount
+
+  // Update inputs when calculated values change (if empty)
+  useEffect(() => {
+    if (subtotalInput === "") {
+      setSubtotalInput(calculatedSubtotal.toFixed(2))
+    }
+
+    if (totalInput === "") {
+      const calculatedTotal = (subtotal + taxAmount + tipAmount).toFixed(2)
+      setTotalInput(calculatedTotal)
+    }
+  }, [calculatedSubtotal, taxAmount, tipAmount, subtotal])
 
   // Add a new empty item
   const addItem = () => {
@@ -338,21 +359,45 @@ export default function CreateBill() {
 
               {/* Summary */}
               <div className="bg-muted rounded-md p-4">
-                <div className="flex justify-between">
+                <div className="flex items-center justify-between">
                   <span>Subtotal:</span>
-                  <span>${subtotal.toFixed(2)}</span>
+                  <div className="relative w-32">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2">
+                      $
+                    </span>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={subtotalInput}
+                      onChange={e => setSubtotalInput(e.target.value)}
+                      className="h-8 pl-7 text-right"
+                    />
+                  </div>
                 </div>
-                <div className="flex justify-between">
+                <div className="mt-2 flex items-center justify-between">
                   <span>Tax:</span>
                   <span>${taxAmount.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="mt-2 flex items-center justify-between">
                   <span>Tip:</span>
                   <span>${tipAmount.toFixed(2)}</span>
                 </div>
-                <div className="mt-2 flex justify-between border-t pt-2 font-medium">
+                <div className="mt-2 flex items-center justify-between border-t pt-2 font-medium">
                   <span>Total:</span>
-                  <span>${total.toFixed(2)}</span>
+                  <div className="relative w-32">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2">
+                      $
+                    </span>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={totalInput}
+                      onChange={e => setTotalInput(e.target.value)}
+                      className="h-8 pl-7 text-right font-medium"
+                    />
+                  </div>
                 </div>
               </div>
 

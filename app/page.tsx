@@ -9,8 +9,8 @@ export default function Home() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [method, setMethod] = useState<"capture" | "upload">("capture")
 
-  setMethod("capture")
   const handleCaptureClick = () => {
+    setMethod("capture")
     setIsDialogOpen(true)
   }
 

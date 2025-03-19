@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { BillItemWithSelection } from "@/types"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -30,37 +30,32 @@ export default function ItemSelector({
     participantSelections
   )
   const initialRenderRef = useRef(true)
-  const prevSelectedItemsRef = useRef<string[]>(selectedItems)
+  const onChangeRef = useRef(onChange)
 
-  // Initialize shared items as selected
+  // Keep the onChange callback reference updated
   useEffect(() => {
-    const sharedItemIds = items.filter(item => item.shared).map(item => item.id)
+    onChangeRef.current = onChange
+  }, [onChange])
 
-    const initialSelections = [
-      ...new Set([...participantSelections, ...sharedItemIds])
-    ]
+  // Initialize with participant selections
+  useEffect(() => {
+    setSelectedItems(participantSelections)
 
-    setSelectedItems(initialSelections)
-
-    // Only call onChange on initial mount
-    if (initialRenderRef.current) {
-      onChange(initialSelections)
+    // Only call onChange on initial mount if there are selections
+    if (initialRenderRef.current && participantSelections.length > 0) {
+      onChangeRef.current(participantSelections)
       initialRenderRef.current = false
     }
-  }, [items, participantSelections]) // Remove onChange from dependencies
+  }, [participantSelections])
 
-  // Call onChange only when selectedItems changes due to user interaction
+  // Call onChange when selectedItems changes, but not on first render
   useEffect(() => {
-    // Skip the first render and when selectedItems is updated by the first useEffect
-    if (
-      !initialRenderRef.current &&
-      JSON.stringify(prevSelectedItemsRef.current) !==
-        JSON.stringify(selectedItems)
-    ) {
-      onChange(selectedItems)
-      prevSelectedItemsRef.current = [...selectedItems]
+    if (!initialRenderRef.current) {
+      onChangeRef.current(selectedItems)
+    } else if (selectedItems.length > 0) {
+      initialRenderRef.current = false
     }
-  }, [selectedItems, onChange])
+  }, [selectedItems])
 
   const handleSelectionChange = (itemId: string, checked: boolean) => {
     let newSelectedItems: string[]
@@ -95,7 +90,7 @@ export default function ItemSelector({
               key={item.id}
               className={cn(
                 item.shared && "bg-muted/50",
-                isItemSelected(item.id) && !item.shared && "bg-primary/10"
+                isItemSelected(item.id) && "bg-primary/10"
               )}
             >
               <TableCell className="p-2">
@@ -104,7 +99,6 @@ export default function ItemSelector({
                   onCheckedChange={checked =>
                     handleSelectionChange(item.id, !!checked)
                   }
-                  disabled={item.shared} // Shared items cannot be unselected
                 />
               </TableCell>
               <TableCell className="font-medium">
